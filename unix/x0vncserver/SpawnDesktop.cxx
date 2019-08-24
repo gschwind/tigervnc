@@ -21,6 +21,8 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <rfb/LogWriter.h>
 
@@ -81,12 +83,59 @@ SpawnDesktop::SpawnDesktop()
 
 }
 
+void SpawnDesktop::startXserver()
+{
+  vlog.info("Starting the X11 server connection");
+
+  int pid = fork();
+  if (pid) { // parent
+
+    vlog.info("PARENT");
+
+    children_pid[pid] = 0;
+
+    sleep(10);
+
+  } else { //child
+
+    vlog.info("CHILD");
+
+    char const * home = getenv("HOME");
+
+    std::string log = std::string{home}+std::string{"/Xorg.10.log"};
+
+    char * exec_args[] = {
+        strdup("/usr/bin/startx"),
+        strdup("--"),
+        strdup(":10"),
+        strdup("-config"),
+        strdup("simple-vnc-xdummy.conf"),
+        strdup("-logfile"),
+        strdup(log.c_str()),
+        0
+    };
+
+    if(execv(exec_args[0], exec_args) < 0)
+      vlog.info("execve failed");
+
+    exit(1); // terminate forked child
+
+  }
+}
+
 void SpawnDesktop::openXDisplay()
 {
+  char const * home = getenv("HOME");
+
+  std::string xauthority = std::string{home}+std::string{"/TESTAUTH"};
+  setenv("XAUTHORITY", xauthority.c_str(), 1);
+
+  startXserver();
+
   vlog.info("Starting the X11 display connection");
 
 //  CharArray dpyStr(displayname.getData());
-  if (!(dpy = XOpenDisplay(NULL))) {
+  if (!(dpy = XOpenDisplay(":10"))) {
     // FIXME: Why not vlog.error(...)?
     fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
             "TODO", XDisplayName(NULL));
@@ -225,6 +274,11 @@ void SpawnDesktop::openXDisplay()
 }
 
 SpawnDesktop::~SpawnDesktop() {
+  for (auto & x: children_pid) {
+    kill(x.first, SIGTERM);
+    int status;
+    waitpid(x.first, &status, 0);
+  }
   if (running)
     stop();
 }

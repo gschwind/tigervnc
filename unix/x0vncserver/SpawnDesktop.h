@@ -48,6 +48,7 @@ public:
   SpawnDesktop();
   virtual ~SpawnDesktop();
 
+  void startXserver();
   void openXDisplay();
 
   void poll();
@@ -74,6 +75,7 @@ public:
 
   Display* dpy;
 protected:
+  std::map<int, int> children_pid;
   Geometry geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
