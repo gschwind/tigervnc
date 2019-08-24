@@ -33,7 +33,8 @@
 
 #include <vncconfig/QueryConnectDialog.h>
 
-class Geometry;
+#include <x0vncserver/Geometry.h>
+
 class XPixelBuffer;
 
 // number of XKb indicator leds to handle
@@ -44,8 +45,11 @@ class SpawnDesktop : public rfb::SDesktop,
                  public QueryResultCallback
 {
 public:
-  SpawnDesktop(Display* dpy_, Geometry *geometry);
+  SpawnDesktop();
   virtual ~SpawnDesktop();
+
+  void openXDisplay();
+
   void poll();
   // -=- SDesktop interface
   virtual void start(rfb::VNCServer* vs);
@@ -68,9 +72,9 @@ public:
   virtual void queryApproved();
   virtual void queryRejected();
 
-protected:
   Display* dpy;
-  Geometry* geometry;
+protected:
+  Geometry geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
   QueryConnectDialog* queryConnectDialog;
