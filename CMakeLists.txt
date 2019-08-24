@@ -74,8 +74,8 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wformat=2")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wformat=2")
 # Make sure we catch these issues whilst developing
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -Werror=vla")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Werror=vla")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=vla")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=vla")
 ENDIF()
 
 option(ENABLE_ASAN "Enable address sanitizer support" OFF)
@@ -130,6 +130,12 @@ endif()
 # X11 stuff. It's in a if() so that we can say REQUIRED
 if(UNIX AND NOT APPLE)
   find_package(X11 REQUIRED)
+endif()
+
+# find XCB stuff
+if(UNIX AND NOT APPLE)
+	include(FindPkgConfig)
+	pkg_check_modules(XCB REQUIRED xcb xcb-damage xcb-xtest xcb-xfixes xcb-xkb xcb-randr x11-xcb cairo cairo-xcb xkbcommon xkbcommon-x11)
 endif()
 
 # Check for zlib

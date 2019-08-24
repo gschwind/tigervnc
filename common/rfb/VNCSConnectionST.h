@@ -105,7 +105,7 @@ namespace rfb {
       updates.add_copied(dest, delta);
     }
 
-  private:
+  protected:
     // SConnection callbacks
 
     // These methods are invoked as callbacks from processMsg()
@@ -156,7 +156,7 @@ namespace rfb {
     void setLEDState(unsigned int state);
     void setSocketTimeouts();
 
-  private:
+  protected:
     network::Socket* sock;
     CharArray peerEndpoint;
     bool reverseConnection;

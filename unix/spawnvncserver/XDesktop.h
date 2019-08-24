@@ -1,0 +1,136 @@
+/* Copyright (C) 2002-2005 RealVNC Ltd.  All Rights Reserved.
+ * Copyright (C) 2004-2008 Constantin Kaplinsky.  All Rights Reserved.
+ * Copyright 2017 Peter Astrand <astrand@cendio.se> for Cendio AB
+ *    
+ * This is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this software; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+ * USA.
+ */
+
+#ifndef __XDESKTOP_H__
+#define __XDESKTOP_H__
+
+#include <unixcommon.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-x11.h>
+
+#include <X11/XKBlib.h>
+#ifdef HAVE_XDAMAGE
+#include <X11/extensions/Xdamage.h>
+#include <xcb/damage.h>
+#endif
+
+#include <X11/Xlib-xcb.h>
+
+#include <spawnvncserver/VNCScreenSpawn.h>
+#include <spawnvncserver/Geometry.h>
+
+class Geometry;
+class XPixelBuffer;
+
+// number of XKb indicator leds to handle
+#define XDESKTOP_N_LEDS 3
+
+class XDesktop : public rfb::SDesktop
+{
+public:
+  XDesktop(int n, std::string const & userName);
+  virtual ~XDesktop();
+
+  XDesktop(XDesktop const &) = delete;
+  XDesktop & operator=(XDesktop const &) = delete;
+
+  bool queryExtension(char const * name, int * opcode = nullptr,
+      int * event = nullptr, int * error = nullptr) const;
+
+  void poll();
+
+  void processPendingXEvent();
+  int getFd() { return xcb_get_file_descriptor(xcb); }
+  void update_default_visual();
+
+  // -=- SDesktop interface
+  virtual void start(rfb::VNCServer* vs) override;
+  virtual void stop();
+  virtual void terminate();
+  bool isRunning();
+  virtual void queryConnection(network::Socket* sock,
+                               const char* userName);
+  virtual void pointerEvent(const rfb::Point& pos, int buttonMask);
+  KeyCode XkbKeysymToKeycode(KeySym keysym);
+  virtual void keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down);
+  virtual void clientCutText(const char* str);
+  virtual unsigned int setScreenLayout(int fb_width, int fb_height,
+                                       const rfb::ScreenSet& layout);
+
+  // -=- TXGlobalEventHandler interface
+  virtual bool handleGlobalEvent(xcb_generic_event_t* ev);
+
+  // -=- QueryResultCallback interface
+  virtual void queryApproved();
+  virtual void queryRejected();
+
+  int startXserver(int n, char const * const userName, char const * const home);
+
+protected:
+  int pid;
+  xcb_connection_t * xcb;
+  int default_screen;
+  xcb_window_t default_root;
+
+  xcb_screen_t * screen;
+
+  int32_t core_keyboard_id;
+  xkb_context * kbd_context;
+  xkb_keymap * kbd_keymap;
+  xkb_state * kbd_state;
+
+  uint32_t xcb_default_visual_depth;
+  xcb_visualtype_t * xcb_default_visual_type;
+  xcb_visualtype_t * xcb_root_visual_type;
+
+  std::map<xcb_visualid_t, xcb_visualtype_t*> xcb_visual_data;
+  std::map<xcb_visualid_t, uint32_t> xcb_visual_depth;
+
+  Geometry geometry;
+  XPixelBuffer* pb;
+  rfb::VNCServer* server;
+  network::Socket* queryConnectSock;
+  int oldButtonMask;
+  bool haveXtest;
+  int maxButtons;
+  std::map<KeySym, KeyCode> pressedKeys;
+  bool running;
+#ifdef HAVE_XDAMAGE
+  xcb_damage_damage_t damage;
+  int xdamageEventBase;
+#endif
+  uint8_t xkbEventBase;
+#ifdef HAVE_XFIXES
+  int xfixesEventBase;
+#endif
+#ifdef HAVE_XRANDR
+  int xrandrEventBase;
+  OutputIdMap outputIdMap;
+  unsigned long randrSyncSerial;
+#endif
+  int ledMasks[XDESKTOP_N_LEDS];
+  unsigned ledState;
+  const unsigned short *codeMap;
+  unsigned codeMapLen;
+  bool setCursor();
+  rfb::ScreenSet computeScreenLayout();
+};
+
+#endif // __XDESKTOP_H__
