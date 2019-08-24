@@ -71,13 +71,37 @@ static const char * ledNames[SPAWNDESKTOP_N_LEDS] = {
   "Scroll Lock", "Num Lock", "Caps Lock"
 };
 
-SpawnDesktop::SpawnDesktop(Display* dpy_, Geometry *geometry_)
-  : dpy(dpy_), geometry(geometry_), pb(0), server(0),
+SpawnDesktop::SpawnDesktop()
+  : dpy(0), geometry(0, 0), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false), haveDamage(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
+
+}
+
+void SpawnDesktop::openXDisplay()
+{
+  vlog.info("Starting the X11 display connection");
+
+//  CharArray dpyStr(displayname.getData());
+  if (!(dpy = XOpenDisplay(NULL))) {
+    // FIXME: Why not vlog.error(...)?
+    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
+            "TODO", XDisplayName(NULL));
+    exit(1);
+  }
+
+  geometry = Geometry(DisplayWidth(dpy, DefaultScreen(dpy)),
+               DisplayHeight(dpy, DefaultScreen(dpy)));
+  if (geometry.getRect().is_empty()) {
+    vlog.error("Exiting with error");
+    return;
+  }
+
+  TXWindow::init(dpy,"x0vncserver");
+
   int major, minor;
 
   int xkbOpcode, xkbErrorBase;
@@ -215,14 +239,16 @@ void SpawnDesktop::poll() {
     unsigned int mask;
     XQueryPointer(dpy, DefaultRootWindow(dpy), &root, &child,
                   &x, &y, &wx, &wy, &mask);
-    x -= geometry->offsetLeft();
-    y -= geometry->offsetTop();
+    x -= geometry.offsetLeft();
+    y -= geometry.offsetTop();
     server->setCursorPos(rfb::Point(x, y));
   }
 }
 
 
 void SpawnDesktop::start(VNCServer* vs) {
+
+  openXDisplay();
 
   // Determine actual number of buttons of the X pointer device.
   unsigned char btnMap[8];
@@ -235,7 +261,7 @@ void SpawnDesktop::start(VNCServer* vs) {
   ImageFactory factory((bool)useShm);
 
   // Create pixel buffer and provide it to the server object.
-  pb = new XPixelBuffer(dpy, factory, geometry->getRect());
+  pb = new XPixelBuffer(dpy, factory, geometry.getRect());
   vlog.info("Allocated %s", pb->getImage()->classDesc());
 
   server = vs;
@@ -311,8 +337,8 @@ void SpawnDesktop::pointerEvent(const Point& pos, int buttonMask) {
 #ifdef HAVE_XTEST
   if (!haveXtest) return;
   XTestFakeMotionEvent(dpy, DefaultScreen(dpy),
-                       geometry->offsetLeft() + pos.x,
-                       geometry->offsetTop() + pos.y,
+                       geometry.offsetLeft() + pos.x,
+                       geometry.offsetTop() + pos.y,
                        CurrentTime);
   if (buttonMask != oldButtonMask) {
     for (int i = 0; i < maxButtons; i++) {
@@ -426,13 +452,13 @@ ScreenSet SpawnDesktop::computeScreenLayout()
 
   // Adjust the layout relative to the geometry
   ScreenSet::iterator iter, iter_next;
-  Point offset(-geometry->offsetLeft(), -geometry->offsetTop());
+  Point offset(-geometry.offsetLeft(), -geometry.offsetTop());
   for (iter = layout.begin();iter != layout.end();iter = iter_next) {
     iter_next = iter; ++iter_next;
     iter->dimensions = iter->dimensions.translate(offset);
-    if (iter->dimensions.enclosed_by(geometry->getRect()))
+    if (iter->dimensions.enclosed_by(geometry.getRect()))
         continue;
-    iter->dimensions = iter->dimensions.intersect(geometry->getRect());
+    iter->dimensions = iter->dimensions.intersect(geometry.getRect());
     if (iter->dimensions.is_empty()) {
       layout.remove_screen(iter->id);
     }
@@ -441,8 +467,8 @@ ScreenSet SpawnDesktop::computeScreenLayout()
 
   // Make sure that we have at least one screen
   if (layout.num_screens() == 0)
-    layout.add_screen(rfb::Screen(0, 0, 0, geometry->width(),
-                                  geometry->height(), 0));
+    layout.add_screen(rfb::Screen(0, 0, 0, geometry.width(),
+                                  geometry.height(), 0));
 
   return layout;
 }
@@ -672,8 +698,8 @@ bool SpawnDesktop::handleGlobalEvent(XEvent* ev) {
 
     dev = (XDamageNotifyEvent*)ev;
     rect.setXYWH(dev->area.x, dev->area.y, dev->area.width, dev->area.height);
-    rect = rect.translate(Point(-geometry->offsetLeft(),
-                                -geometry->offsetTop()));
+    rect = rect.translate(Point(-geometry.offsetLeft(),
+                                -geometry.offsetTop()));
     server->add_changed(rect);
 
     return true;
@@ -707,7 +733,7 @@ bool SpawnDesktop::handleGlobalEvent(XEvent* ev) {
     }
 
     XRRUpdateConfiguration(ev);
-    geometry->recalc(cev->width, cev->height);
+    geometry.recalc(cev->width, cev->height);
 
     if (!running) {
       return false;
@@ -717,7 +743,7 @@ bool SpawnDesktop::handleGlobalEvent(XEvent* ev) {
       // Recreate pixel buffer
       ImageFactory factory((bool)useShm);
       delete pb;
-      pb = new XPixelBuffer(dpy, factory, geometry->getRect());
+      pb = new XPixelBuffer(dpy, factory, geometry.getRect());
       server->setPixelBuffer(pb, computeScreenLayout());
 
       // Mark entire screen as changed
