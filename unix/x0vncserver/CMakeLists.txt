@@ -33,6 +33,8 @@ add_executable(spawnx0vncserver
   XPixelBuffer.cxx
   SpawnDesktop.cxx
   RandrGlue.c
+  VNCServerSpawn.cxx
+  VNCSConnectionSpawn.cxx
   ../vncconfig/QueryConnectDialog.cxx
 )
 

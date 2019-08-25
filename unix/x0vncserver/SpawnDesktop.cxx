@@ -87,6 +87,7 @@ void SpawnDesktop::startXserver()
 {
   vlog.info("Starting the X11 server connection");
 
+
   int pid = fork();
   if (pid) { // parent
 
