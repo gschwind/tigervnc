@@ -20,6 +20,7 @@
 // FIXME: Check cases when screen width/height is not a multiply of 32.
 //        e.g. 800x600.
 
+#include <memory>
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -42,6 +43,7 @@
 #include <x0vncserver/Geometry.h>
 #include <x0vncserver/Image.h>
 #include <x0vncserver/PollingScheduler.h>
+#include <x0vncserver/VNCServerSpawn.h>
 
 extern char buildtime[];
 
@@ -236,11 +238,12 @@ int main(int argc, char** argv)
   signal(SIGTERM, CleanupSignalHandler);
 
   std::list<SocketListener*> listeners;
+  std::list<std::shared_ptr<VNCServerSpawn>> servers;
 
   try {
     SpawnDesktop desktop;
 
-    VNCServerST server("x0vncserver", &desktop);
+    VNCServerSpawn server("x0vncserver", &desktop);
 
     if (rfbunixpath.getValueStr()[0] != '\0') {
       listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
@@ -285,7 +288,11 @@ int main(int argc, char** argv)
            i++)
         FD_SET((*i)->getFd(), &rfds);
 
-      server.getSockets(&sockets);
+      for(auto &s: servers) {
+        std::list<Socket *> server_sockets;
+        s->getSockets(&server_sockets);
+      }
+
       int clients_connected = 0;
       for (i = sockets.begin(); i != sockets.end(); i++) {
         if ((*i)->isShutdown()) {

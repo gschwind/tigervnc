@@ -29,6 +29,12 @@ using namespace rfb;
 static LogWriter slog("VNCServerSpawn");
 static LogWriter connectionsLog("Connections");
 
+VNCServerSpawn::VNCServerSpawn(const char* name_, SDesktop* desktop_) :
+    VNCServerST(name_, desktop_)
+{
+
+}
+
 void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
 {
   // - Check the connection isn't black-marked

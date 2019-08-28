@@ -19,6 +19,8 @@
 #ifndef __VNCCONNECTIONSPAWN_H__
 #define __VNCCONNECTIONSPAWN_H__
 
+#include <memory>
+
 #include <network/TcpSocket.h>
 
 #include <rfb/ComparingUpdateTracker.h>
@@ -32,13 +34,33 @@
 
 #include <rfb/VNCSConnectionST.h>
 
+#include <x0vncserver/XDesktop.h>
+
 namespace rfb {
 
-class VNCSConnectionSpawn : public VNCSConnectionST
+struct VNCSConnectionSpawn : public VNCSConnectionST
 {
 
-public:
+  std::unique_ptr<XDesktop> desktop;
+  KeyRemapper* keyRemapper;
+  unsigned int ledState;
+
   VNCSConnectionSpawn(VNCServerST* server_, network::Socket* s, bool reverse);
+
+  virtual ~VNCSConnectionSpawn();
+
+  void keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down) override;
+
+  void pointerEvent(const Point& pos, int buttonMask) override;
+
+  void pixelBufferChange() override;
+
+  unsigned getLEDState() const { return ledState; }
+
+  // this functions comme from the server.
+  void SERVERkeyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down);
+  void SERVERpointerEvent(VNCSConnectionST* client, const Point& pos,
+      int buttonMask);
 
 };
 

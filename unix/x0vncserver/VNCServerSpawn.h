@@ -25,6 +25,10 @@ namespace rfb {
 
   class VNCServerSpawn : public VNCServerST
   {
+  public:
+
+    VNCServerSpawn(const char* name_, SDesktop* desktop_);
+
     virtual void addSocket(network::Socket* sock, bool outgoing=false) override;
   };
 
