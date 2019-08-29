@@ -175,13 +175,97 @@ private:
 
 };
 
+std::list<std::tuple<int, Display*, Geometry*, XDesktop*>> displays;
+
+int startXserver(int n)
+{
+  vlog.info("Starting the X11 server connection");
+
+
+  int pid = fork();
+  if (pid) { // parent
+
+    vlog.info("PARENT");
+
+    sleep(10); // todo find better
+
+    return pid;
+
+  } else { //child
+
+    vlog.info("CHILD");
+
+    char const * home = getenv("HOME");
+
+    char * xx;
+    asprintf(&xx, ":%d", n);
+
+    char * logfile;
+    asprintf(&logfile, "/Xorg.%d.log", n);
+
+    std::string log = std::string{home}+std::string{logfile};
+
+    char * exec_args[] = {
+        strdup("/usr/bin/startx"),
+        strdup("--"),
+        strdup(xx),
+        strdup("-config"),
+        strdup("simple-vnc-xdummy.conf"),
+        strdup("-logfile"),
+        strdup(log.c_str()),
+        0
+    };
+
+    if(execv(exec_args[0], exec_args) < 0)
+      vlog.info("execve failed");
+
+    exit(1); // terminate forked child
+
+    return -1;
+  }
+}
+
 struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
   VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
 
   virtual SDesktop * create_sdesktop() override {
-    return nullptr; // TODO;
-//    return new XDesktop();
+
+    int n = 10 + displays.size();
+
+    char const * home = getenv("HOME");
+
+    std::string xauthority = std::string{home}+std::string{"/TESTAUTH"};
+    setenv("XAUTHORITY", xauthority.c_str(), 1);
+
+    int pid = startXserver(n);
+
+    vlog.info("Starting the X11 display connection");
+
+    Display * dpy;
+
+    char * xx;
+    asprintf(&xx, ":%d", n);
+  //  CharArray dpyStr(displayname.getData());
+    if (!(dpy = XOpenDisplay(xx))) {
+      // FIXME: Why not vlog.error(...)?
+      fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
+              "TODO", XDisplayName(NULL));
+      exit(1);
+    }
+
+    Geometry * geometry = new Geometry(DisplayWidth(dpy, DefaultScreen(dpy)),
+                 DisplayHeight(dpy, DefaultScreen(dpy)));
+    if (geometry->getRect().is_empty()) {
+      vlog.error("Exiting with error");
+      return nullptr; // fatal
+    }
+
+    TXWindow::init(dpy,"x0vncserver");
+
+    auto desktop = new XDesktop(dpy, geometry); // TODO;
+    displays.push_back(std::make_tuple(pid, dpy, geometry, desktop));
+    return desktop; // TODO;
   }
 };
 
@@ -215,7 +299,6 @@ int main(int argc, char** argv)
   LogWriter::setLogParams("*:stderr:30");
 
   programName = argv[0];
-  Display* dpy;
 
   Configuration::enableServerParams();
 
@@ -298,12 +381,16 @@ int main(int argc, char** argv)
       std::list<Socket*>::iterator i;
 
       // Process any incoming X events
-      TXWindow::handleXEvents(dpy);
+      for(auto &x: displays) {
+        TXWindow::handleXEvents(std::get<1>(x));
+      }
 
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
-      FD_SET(ConnectionNumber(dpy), &rfds);
+      for (auto &x: displays) {
+        FD_SET(ConnectionNumber(std::get<1>(x)), &rfds);
+      }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
            i != listeners.end();
            i++)
@@ -387,10 +474,14 @@ int main(int argc, char** argv)
           server.processSocketWriteEvent(*i);
       }
 
-//      if (desktop.isRunning() && sched.goodTimeToPoll()) {
-//        sched.newPass();
-//        desktop.poll();
-//      }
+      if (sched.goodTimeToPoll()) {
+        sched.newPass();
+        for(auto &x: displays) {
+          if (std::get<3>(x)) {
+            std::get<3>(x)->poll();
+          }
+        }
+      }
     }
 
   } catch (rdr::Exception &e) {
@@ -398,7 +489,9 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  TXWindow::handleXEvents(dpy);
+  for(auto &x: displays) {
+    TXWindow::handleXEvents(std::get<1>(x));
+  }
 
   // Run listener destructors; remove UNIX sockets etc
   for (std::list<SocketListener*>::iterator i = listeners.begin();
