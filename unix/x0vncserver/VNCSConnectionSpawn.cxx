@@ -18,6 +18,8 @@
 
 #include <x0vncserver/VNCSConnectionSpawn.h>
 
+#include <cassert>
+
 #include <rfb/ledStates.h>
 
 using namespace rfb;
@@ -43,6 +45,386 @@ public:
   VNCSConnectionSpawn* server;
   bool pressed;
 };
+
+
+
+VNCSConnectionSpawn::Server::Server()
+{
+  // TODO
+}
+
+void VNCSConnectionSpawn::Server::startFrameClock()
+{
+  if (frameTimer.isStarted())
+    return;
+  if (blockCounter > 0)
+    return;
+  if (!desktopStarted)
+    return;
+
+  // The first iteration will be just half a frame as we get a very
+  // unstable update rate if we happen to be perfectly in sync with
+  // the application's update rate
+  frameTimer.start(1000/rfb::Server::frameRate/2);
+}
+
+void VNCSConnectionSpawn::Server::stopFrameClock()
+{
+  frameTimer.stop();
+}
+
+int VNCSConnectionSpawn::Server::authClientCount() {
+  int count = 0;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
+  for (ci = clients.begin(); ci != clients.end(); ci++) {
+    if ((*ci)->authenticated())
+      count++;
+  }
+  return count;
+}
+
+void VNCSConnectionSpawn::Server::stopDesktop()
+{
+  if (desktopStarted) {
+    vlog.debug("stopping desktop");
+    desktopStarted = false;
+//    desktop->stop(); // TODO
+    stopFrameClock();
+  }
+}
+
+// SocketServer methods
+
+void VNCSConnectionSpawn::Server::addSocket(network::Socket* sock, bool outgoing)
+{
+  // - Check the connection isn't black-marked
+  // *** do this in getSecurity instead?
+  CharArray address(sock->getPeerAddress());
+  if (blHosts->isBlackmarked(address.buf)) {
+    vlog.error("blacklisted: %s", address.buf);
+    try {
+      rdr::OutStream& os = sock->outStream();
+
+      // Shortest possible way to tell a client it is not welcome
+      os.writeBytes("RFB 003.003\n", 12);
+      os.writeU32(0);
+      os.writeString("Too many security failures");
+      os.flush();
+    } catch (rdr::Exception&) {
+    }
+    sock->shutdown();
+    closingSockets.push_back(sock);
+    return;
+  }
+
+  CharArray name;
+  name.buf = sock->getPeerEndpoint();
+  vlog.status("accepted: %s", name.buf);
+
+  // Adjust the exit timers
+  if (rfb::Server::maxConnectionTime && clients.empty())
+    connectTimer.start(secsToMillis(rfb::Server::maxConnectionTime));
+  disconnectTimer.stop();
+
+  VNCSConnectionSpawn* client = new VNCSConnectionSpawn(this, sock, outgoing);
+  clients.push_front(client);
+  client->init();
+}
+
+void VNCSConnectionSpawn::Server::removeSocket(network::Socket* sock) {
+  // - If the socket has resources allocated to it, delete them
+  std::list<VNCSConnectionSpawn*>::iterator ci;
+  for (ci = clients.begin(); ci != clients.end(); ci++) {
+    if ((*ci)->getSock() == sock) {
+      // - Remove any references to it
+      if (pointerClient == *ci)
+        pointerClient = NULL;
+      if (clipboardClient == *ci)
+        clipboardClient = NULL;
+      clipboardRequestors.remove(*ci);
+
+      // Adjust the exit timers
+      connectTimer.stop();
+      if (rfb::Server::maxDisconnectionTime && clients.empty())
+        disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
+
+      // - Delete the per-Socket resources
+      delete *ci;
+
+      clients.remove(*ci);
+
+      CharArray name;
+      name.buf = sock->getPeerEndpoint();
+      vlog.status("closed: %s", name.buf);
+
+      // - Check that the desktop object is still required
+      if (authClientCount() == 0)
+        stopDesktop();
+
+      if (comparer)
+        comparer->logStats();
+
+      return;
+    }
+  }
+
+  // - If the Socket has no resources, it may have been a closingSocket
+  closingSockets.remove(sock);
+}
+
+void VNCSConnectionSpawn::Server::processSocketReadEvent(network::Socket* sock)
+{
+  // - Find the appropriate VNCSConnectionST and process the event
+  std::list<VNCSConnectionSpawn*>::iterator ci;
+  for (ci = clients.begin(); ci != clients.end(); ci++) {
+    if ((*ci)->getSock() == sock) {
+      (*ci)->processMessages();
+      return;
+    }
+  }
+  throw rdr::Exception("invalid Socket in VNCServerST");
+}
+
+void VNCSConnectionSpawn::Server::processSocketWriteEvent(network::Socket* sock)
+{
+  // - Find the appropriate VNCSConnectionST and process the event
+  std::list<VNCSConnectionSpawn*>::iterator ci;
+  for (ci = clients.begin(); ci != clients.end(); ci++) {
+    if ((*ci)->getSock() == sock) {
+      (*ci)->flushSocket();
+      return;
+    }
+  }
+  throw rdr::Exception("invalid Socket in VNCServerST");
+}
+
+// VNCServer methods
+
+void VNCSConnectionSpawn::Server::blockUpdates()
+{
+  blockCounter++;
+
+  stopFrameClock();
+}
+
+void VNCSConnectionSpawn::Server::unblockUpdates()
+{
+  assert(blockCounter > 0);
+
+  blockCounter--;
+
+  // Restart the frame clock if we have updates
+  if (blockCounter == 0) {
+    if (!comparer->is_empty())
+      startFrameClock();
+  }
+}
+
+void VNCSConnectionSpawn::Server::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
+{
+  if (comparer)
+    comparer->logStats();
+
+  pb = pb_;
+  delete comparer;
+  comparer = 0;
+
+  if (!pb) {
+    screenLayout = ScreenSet();
+
+    if (desktopStarted)
+      throw Exception("setPixelBuffer: null PixelBuffer when desktopStarted?");
+
+    return;
+  }
+
+  if (!layout.validate(pb->width(), pb->height()))
+    throw Exception("setPixelBuffer: invalid screen layout");
+
+  screenLayout = layout;
+
+  // Assume the framebuffer contents wasn't saved and reset everything
+  // that tracks its contents
+  comparer = new ComparingUpdateTracker(pb);
+  renderedCursorInvalid = true;
+  add_changed(pb->getRect());
+
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->pixelBufferChange();
+    // Since the new pixel buffer means an ExtendedDesktopSize needs to
+    // be sent anyway, we don't need to call screenLayoutChange.
+  }
+}
+
+void VNCSConnectionSpawn::Server::setPixelBuffer(PixelBuffer* pb_)
+{
+  ScreenSet layout = screenLayout;
+
+  // Check that the screen layout is still valid
+  if (pb_ && !layout.validate(pb_->width(), pb_->height())) {
+    Rect fbRect;
+    ScreenSet::iterator iter, iter_next;
+
+    fbRect.setXYWH(0, 0, pb_->width(), pb_->height());
+
+    for (iter = layout.begin();iter != layout.end();iter = iter_next) {
+      iter_next = iter; ++iter_next;
+      if (iter->dimensions.enclosed_by(fbRect))
+          continue;
+      iter->dimensions = iter->dimensions.intersect(fbRect);
+      if (iter->dimensions.is_empty()) {
+        vlog.info("Removing screen %d (%x) as it is completely outside the new framebuffer",
+                  (int)iter->id, (unsigned)iter->id);
+        layout.remove_screen(iter->id);
+      }
+    }
+  }
+
+  // Make sure that we have at least one screen
+  if (layout.num_screens() == 0)
+    layout.add_screen(Screen(0, 0, 0, pb->width(), pb->height(), 0));
+
+  setPixelBuffer(pb_, layout);
+}
+
+void VNCSConnectionSpawn::Server::setScreenLayout(const ScreenSet& layout)
+{
+  if (!pb)
+    throw Exception("setScreenLayout: new screen layout without a PixelBuffer");
+  if (!layout.validate(pb->width(), pb->height()))
+    throw Exception("setScreenLayout: invalid screen layout");
+
+  screenLayout = layout;
+
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->screenLayoutChangeOrClose(reasonServer);
+  }
+}
+
+void VNCSConnectionSpawn::Server::requestClipboard()
+{
+  if (clipboardClient == NULL)
+    return;
+
+  clipboardClient->requestClipboard();
+}
+
+void VNCSConnectionSpawn::Server::announceClipboard(bool available)
+{
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+
+  if (available)
+    clipboardClient = NULL;
+
+  clipboardRequestors.clear();
+
+  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->announceClipboard(available);
+  }
+}
+
+void VNCSConnectionSpawn::Server::sendClipboardData(const char* data)
+{
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+
+  if (strchr(data, '\r') != NULL)
+    throw Exception("Invalid carriage return in clipboard data");
+
+  for (ci = clipboardRequestors.begin();
+       ci != clipboardRequestors.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->sendClipboardData(data);
+  }
+
+  clipboardRequestors.clear();
+}
+
+void VNCSConnectionSpawn::Server::bell()
+{
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->bellOrClose();
+  }
+}
+
+void VNCSConnectionSpawn::Server::setName(const char* name_)
+{
+  name.replaceBuf(strDup(name_));
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->setDesktopNameOrClose(name_);
+  }
+}
+
+void VNCSConnectionSpawn::Server::add_changed(const Region& region)
+{
+  if (comparer == NULL)
+    return;
+
+  comparer->add_changed(region);
+  startFrameClock();
+}
+
+void VNCSConnectionSpawn::Server::add_copied(const Region& dest, const Point& delta)
+{
+  if (comparer == NULL)
+    return;
+
+  comparer->add_copied(dest, delta);
+  startFrameClock();
+}
+
+void VNCSConnectionSpawn::Server::setCursor(int width, int height, const Point& newHotspot,
+                            const rdr::U8* data)
+{
+  delete cursor;
+  cursor = new Cursor(width, height, newHotspot, data);
+  cursor->crop();
+
+  renderedCursorInvalid = true;
+
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->renderedCursorChange();
+    (*ci)->setCursorOrClose();
+  }
+}
+
+void VNCSConnectionSpawn::Server::setCursorPos(const Point& pos)
+{
+  if (!cursorPos.equals(pos)) {
+    cursorPos = pos;
+    renderedCursorInvalid = true;
+    std::list<VNCSConnectionST*>::iterator ci;
+    for (ci = clients.begin(); ci != clients.end(); ci++)
+      (*ci)->renderedCursorChange();
+  }
+}
+
+void VNCSConnectionSpawn::Server::setLEDState(unsigned int state)
+{
+  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+
+  if (state == ledState)
+    return;
+
+  ledState = state;
+
+  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+    ci_next = ci; ci_next++;
+    (*ci)->setLEDStateOrClose(state);
+  }
+}
+
+
 
 VNCSConnectionSpawn::VNCSConnectionSpawn(VNCServerST* server_, network::Socket* s, bool reverse) :
   VNCSConnectionST(server_, s, reverse),
