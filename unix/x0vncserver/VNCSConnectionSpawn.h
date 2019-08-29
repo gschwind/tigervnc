@@ -49,7 +49,7 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
     void stopFrameClock();
     int authClientCount();
 
-    void stopDesktop()
+    void stopDesktop();
 
     // Methods overridden from SocketServer
 
@@ -76,7 +76,6 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
     //   Flush pending data from the Socket on to the network.
     virtual void processSocketWriteEvent(network::Socket* sock);
 
-
     // Methodes VNCServer
 
     virtual void blockUpdates() override;
@@ -92,7 +91,7 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
 
     virtual void approveConnection(network::Socket* sock, bool accept,
                                    const char* reason) override;
-    virtual void closeClients(const char* reason) override {closeClients(reason, 0);}
+    virtual void closeClients(const char* reason) override {/*closeClients(reason, 0);*/} //TODO
     virtual SConnection* getConnection(network::Socket* sock) override;
 
     virtual void add_changed(const Region &region) override;
@@ -104,6 +103,10 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
     virtual void setLEDState(unsigned state) override;
 
     virtual void bell() override;
+
+    // OTHER
+
+    const ScreenSet& getScreenLayout() const { return screenLayout; }
 
     Blacklist* blHosts;
     std::list<network::Socket*> closingSockets;
@@ -126,6 +129,7 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
     Cursor* cursor;
     Point cursorPos;
     Timer frameTimer;
+    unsigned int ledState;
 
   };
 
@@ -144,7 +148,7 @@ struct VNCSConnectionSpawn : public VNCSConnectionST
 
   void pointerEvent(const Point& pos, int buttonMask) override;
 
-  void pixelBufferChange() override;
+  void pixelBufferChange();
 
   unsigned getLEDState() const { return ledState; }
 

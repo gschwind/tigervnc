@@ -73,129 +73,45 @@ void VNCSConnectionSpawn::Server::stopFrameClock()
   frameTimer.stop();
 }
 
-int VNCSConnectionSpawn::Server::authClientCount() {
-  int count = 0;
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->authenticated())
-      count++;
-  }
-  return count;
-}
-
-void VNCSConnectionSpawn::Server::stopDesktop()
-{
-  if (desktopStarted) {
-    vlog.debug("stopping desktop");
-    desktopStarted = false;
-//    desktop->stop(); // TODO
-    stopFrameClock();
-  }
-}
+//int VNCSConnectionSpawn::Server::authClientCount() {
+//  int count = 0;
+//  std::list<VNCSConnectionSpawn*>::iterator ci;
+//  for (ci = clients.begin(); ci != clients.end(); ci++) {
+//    if ((*ci)->authenticated())
+//      count++;
+//  }
+//  return count;
+//}
+//
+//void VNCSConnectionSpawn::Server::stopDesktop()
+//{
+//  if (desktopStarted) {
+//    vlog.debug("stopping desktop");
+//    desktopStarted = false;
+////    desktop->stop(); // TODO
+//    stopFrameClock();
+//  }
+//}
 
 // SocketServer methods
 
 void VNCSConnectionSpawn::Server::addSocket(network::Socket* sock, bool outgoing)
 {
-  // - Check the connection isn't black-marked
-  // *** do this in getSecurity instead?
-  CharArray address(sock->getPeerAddress());
-  if (blHosts->isBlackmarked(address.buf)) {
-    vlog.error("blacklisted: %s", address.buf);
-    try {
-      rdr::OutStream& os = sock->outStream();
-
-      // Shortest possible way to tell a client it is not welcome
-      os.writeBytes("RFB 003.003\n", 12);
-      os.writeU32(0);
-      os.writeString("Too many security failures");
-      os.flush();
-    } catch (rdr::Exception&) {
-    }
-    sock->shutdown();
-    closingSockets.push_back(sock);
-    return;
-  }
-
-  CharArray name;
-  name.buf = sock->getPeerEndpoint();
-  vlog.status("accepted: %s", name.buf);
-
-  // Adjust the exit timers
-  if (rfb::Server::maxConnectionTime && clients.empty())
-    connectTimer.start(secsToMillis(rfb::Server::maxConnectionTime));
-  disconnectTimer.stop();
-
-  VNCSConnectionSpawn* client = new VNCSConnectionSpawn(this, sock, outgoing);
-  clients.push_front(client);
-  client->init();
+  throw std::runtime_error("Unexpected call to " __PRETTY_FUNCTION__);
 }
 
 void VNCSConnectionSpawn::Server::removeSocket(network::Socket* sock) {
-  // - If the socket has resources allocated to it, delete them
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-      // - Remove any references to it
-      if (pointerClient == *ci)
-        pointerClient = NULL;
-      if (clipboardClient == *ci)
-        clipboardClient = NULL;
-      clipboardRequestors.remove(*ci);
-
-      // Adjust the exit timers
-      connectTimer.stop();
-      if (rfb::Server::maxDisconnectionTime && clients.empty())
-        disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
-
-      // - Delete the per-Socket resources
-      delete *ci;
-
-      clients.remove(*ci);
-
-      CharArray name;
-      name.buf = sock->getPeerEndpoint();
-      vlog.status("closed: %s", name.buf);
-
-      // - Check that the desktop object is still required
-      if (authClientCount() == 0)
-        stopDesktop();
-
-      if (comparer)
-        comparer->logStats();
-
-      return;
-    }
-  }
-
-  // - If the Socket has no resources, it may have been a closingSocket
-  closingSockets.remove(sock);
+  throw std::runtime_error("Unexpected call to " __PRETTY_FUNCTION__);
 }
 
 void VNCSConnectionSpawn::Server::processSocketReadEvent(network::Socket* sock)
 {
-  // - Find the appropriate VNCSConnectionST and process the event
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-      (*ci)->processMessages();
-      return;
-    }
-  }
-  throw rdr::Exception("invalid Socket in VNCServerST");
+  throw std::runtime_error("Unexpected call to " __PRETTY_FUNCTION__);
 }
 
 void VNCSConnectionSpawn::Server::processSocketWriteEvent(network::Socket* sock)
 {
-  // - Find the appropriate VNCSConnectionST and process the event
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-      (*ci)->flushSocket();
-      return;
-    }
-  }
-  throw rdr::Exception("invalid Socket in VNCServerST");
+  throw std::runtime_error("Unexpected call to " __PRETTY_FUNCTION__);
 }
 
 // VNCServer methods
@@ -249,7 +165,7 @@ void VNCSConnectionSpawn::Server::setPixelBuffer(PixelBuffer* pb_, const ScreenS
   renderedCursorInvalid = true;
   add_changed(pb->getRect());
 
-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->pixelBufferChange();
@@ -390,7 +306,7 @@ void VNCSConnectionSpawn::Server::setCursor(int width, int height, const Point& 
 
   renderedCursorInvalid = true;
 
-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->renderedCursorChange();
@@ -403,7 +319,7 @@ void VNCSConnectionSpawn::Server::setCursorPos(const Point& pos)
   if (!cursorPos.equals(pos)) {
     cursorPos = pos;
     renderedCursorInvalid = true;
-    std::list<VNCSConnectionST*>::iterator ci;
+    std::list<VNCSConnectionSpawn*>::iterator ci;
     for (ci = clients.begin(); ci != clients.end(); ci++)
       (*ci)->renderedCursorChange();
   }
@@ -411,7 +327,7 @@ void VNCSConnectionSpawn::Server::setCursorPos(const Point& pos)
 
 void VNCSConnectionSpawn::Server::setLEDState(unsigned int state)
 {
-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   if (state == ledState)
     return;
@@ -628,8 +544,8 @@ void VNCSConnectionSpawn::pixelBufferChange()
   try {
     if (!authenticated()) return;
     if (client.width() && client.height() &&
-        (server->getPixelBuffer()->width() != client.width() ||
-         server->getPixelBuffer()->height() != client.height()))
+        (server.getPixelBuffer()->width() != client.width() ||
+         server.getPixelBuffer()->height() != client.height()))
     {
       // We need to clip the next update to the new size, but also add any
       // extra bits if it's bigger.  If we wanted to do this exactly, something
@@ -646,11 +562,11 @@ void VNCSConnectionSpawn::pixelBufferChange()
       //  updates.add_changed(Rect(0, client.height(), client.width(),
       //                           server->pb->height()));
 
-      damagedCursorRegion.assign_intersect(server->getPixelBuffer()->getRect());
+      damagedCursorRegion.assign_intersect(server.getPixelBuffer()->getRect());
 
-      client.setDimensions(server->getPixelBuffer()->width(),
-                           server->getPixelBuffer()->height(),
-                           server->getScreenLayout());
+      client.setDimensions(server.getPixelBuffer()->width(),
+                           server.getPixelBuffer()->height(),
+                           server.getScreenLayout());
       if (state() == RFBSTATE_NORMAL) {
         if (!client.supportsDesktopSize()) {
           close("Client does not support desktop resize");
@@ -660,12 +576,12 @@ void VNCSConnectionSpawn::pixelBufferChange()
       }
 
       // Drop any lossy tracking that is now outside the framebuffer
-      encodeManager.pruneLosslessRefresh(Region(server->getPixelBuffer()->getRect()));
+      encodeManager.pruneLosslessRefresh(Region(server.getPixelBuffer()->getRect()));
     }
     // Just update the whole screen at the moment because we're too lazy to
     // work out what's actually changed.
     updates.clear();
-    updates.add_changed(server->getPixelBuffer()->getRect());
+    updates.add_changed(server.getPixelBuffer()->getRect());
     writeFramebufferUpdate();
   } catch(rdr::Exception &e) {
     close(e.str());
