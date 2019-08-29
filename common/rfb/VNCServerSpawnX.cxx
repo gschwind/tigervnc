@@ -273,7 +273,11 @@ void VNCServerSpawnXBase::clientReady(VNCSConnectionSpawnX* client, bool shared)
 }
 
 // -=- Internal methods
-
+bool VNCServerSpawnXBase::handleTimeout(Timer* t)
+{
+  //TODO
+  return false;
+}
 
 int VNCServerSpawnXBase::authClientCount() {
   int count = 0;
