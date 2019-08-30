@@ -242,25 +242,6 @@ void VNCServerSpawnXBase::getSockets(std::list<network::Socket*>* sockets)
   }
 }
 
-void VNCServerSpawnXBase::clientReady(VNCSConnectionSpawnX* client, bool shared)
-{
-  if (!shared) {
-    if (rfb::Server::disconnectClients &&
-        client->accessCheck(SConnection::AccessNonShared)) {
-      // - Close all the other connected clients
-      slog.debug("non-shared connection - closing clients");
-      closeClients("Non-shared connection requested", client->getSock());
-    } else {
-      // - Refuse this connection if there are existing clients, in addition to
-      // this one
-      if (authClientCount() > 1) {
-        client->close("Server is already in use");
-        return;
-      }
-    }
-  }
-}
-
 // -=- Internal methods
 bool VNCServerSpawnXBase::handleTimeout(Timer* t)
 {
