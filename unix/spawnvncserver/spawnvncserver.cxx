@@ -22,6 +22,7 @@
 
 #include <strings.h>
 #include <sys/types.h>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
@@ -177,7 +178,7 @@ private:
 
 std::list<std::tuple<int, Display*, Geometry*, XDesktop*>> displays;
 
-int startXserver(int n)
+int startXserver(int n, char const * const userName, char const * const home)
 {
   vlog.info("Starting the X11 server connection");
 
@@ -195,24 +196,20 @@ int startXserver(int n)
 
     vlog.info("CHILD");
 
-    char const * home = getenv("HOME");
+    char * xorg_cmd = nullptr;
+    asprintf(&xorg_cmd, "/usr/bin/env XAUTHORITY=%s/TESTAUTH "
+        "/usr/bin/startx -- :%d -config simple-vnc-xdummy.conf -logfile %s/Xorg.%d.log",
+        home, n, home, n);
 
-    char * xx;
-    asprintf(&xx, ":%d", n);
+    vlog.info("start command %s", xorg_cmd);
 
-    char * logfile;
-    asprintf(&logfile, "/Xorg.%d.log", n);
-
-    std::string log = std::string{home}+std::string{logfile};
-
+    // good news: su --login preserve XAUTHORITY.
     char * exec_args[] = {
-        strdup("/usr/bin/startx"),
-        strdup("--"),
-        strdup(xx),
-        strdup("-config"),
-        strdup("simple-vnc-xdummy.conf"),
-        strdup("-logfile"),
-        strdup(log.c_str()),
+        strdup("/bin/su"),
+        strdup("--login"),
+        strdup(userName),
+        strdup("--command"),
+        xorg_cmd,
         0
     };
 
@@ -229,16 +226,18 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
   VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
 
-  virtual SDesktop * create_sdesktop() override {
+  virtual SDesktop * create_sdesktop(std::string const & userName) override {
 
     int n = 10 + displays.size();
 
-    char const * home = getenv("HOME");
+    passwd * pw = getpwnam(userName.c_str());
+
+    char const * home = pw->pw_dir;
 
     std::string xauthority = std::string{home}+std::string{"/TESTAUTH"};
     setenv("XAUTHORITY", xauthority.c_str(), 1);
 
-    int pid = startXserver(n);
+    int pid = startXserver(n, userName.c_str(), home);
 
     vlog.info("Starting the X11 display connection");
 
@@ -250,7 +249,7 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
     if (!(dpy = XOpenDisplay(xx))) {
       // FIXME: Why not vlog.error(...)?
       fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-              "TODO", XDisplayName(NULL));
+              "TODO", XDisplayName(xx));
       exit(1);
     }
 
