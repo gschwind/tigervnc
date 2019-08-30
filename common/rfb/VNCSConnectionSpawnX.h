@@ -106,6 +106,11 @@ namespace rfb {
       updates.add_copied(dest, delta);
     }
 
+    // our-methods
+
+    // remove this client from the internal_server.
+    void unregister();
+
   private:
     // SConnection callbacks
 
