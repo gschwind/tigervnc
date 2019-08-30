@@ -20,7 +20,7 @@ add_executable(spawnvncserver
   ../vncconfig/QueryConnectDialog.cxx
 )
 
-target_link_libraries(spawnvncserver tx rfb network rdr unixcommon)
+target_link_libraries(spawnvncserver tx rfb network rdr unixcommon ${XCB_LIBRARIES})
 
 if(X11_FOUND AND X11_XTest_LIB)
   add_definitions(-DHAVE_XTEST)
