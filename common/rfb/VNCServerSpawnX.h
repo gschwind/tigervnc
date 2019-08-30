@@ -88,11 +88,6 @@ namespace rfb {
     // any), and logs the specified reason for closure.
     void closeClients(const char* reason, network::Socket* sock);
 
-    // clientReady() is called by a VNCSConnectionSpawnX instance when the
-    // client has completed the handshake and is ready for normal
-    // communication.
-    void clientReady(VNCSConnectionSpawnX* client, bool shared);
-
     // Part of the framebuffer that has been modified but is not yet
     // ready to be sent to clients
     Region getPendingRegion();
