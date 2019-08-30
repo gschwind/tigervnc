@@ -27,7 +27,7 @@
 #include <errno.h>
 #include <rfb/Logger_stdio.h>
 #include <rfb/LogWriter.h>
-#include <rfb/VNCServerST.h>
+#include <rfb/VNCServerSpawnX.h>
 #include <rfb/Configuration.h>
 #include <rfb/Timer.h>
 #include <network/TcpSocket.h>
@@ -175,6 +175,16 @@ private:
 
 };
 
+struct VNCServerSpawnXS : public VNCServerSpawnXBase
+{
+  VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
+
+  virtual SDesktop * create_sdesktop() override {
+    return nullptr; // TODO;
+//    return new XDesktop();
+  }
+};
+
 char* programName;
 
 static void printVersion(FILE *fp)
@@ -232,13 +242,13 @@ int main(int argc, char** argv)
     usage();
   }
 
-  CharArray dpyStr(displayname.getData());
-  if (!(dpy = XOpenDisplay(dpyStr.buf[0] ? dpyStr.buf : 0))) {
-    // FIXME: Why not vlog.error(...)?
-    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-            programName, XDisplayName(dpyStr.buf));
-    exit(1);
-  }
+//  CharArray dpyStr(displayname.getData());
+//  if (!(dpy = XOpenDisplay(dpyStr.buf[0] ? dpyStr.buf : 0))) {
+//    // FIXME: Why not vlog.error(...)?
+//    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
+//            programName, XDisplayName(dpyStr.buf));
+//    exit(1);
+//  }
 
   signal(SIGHUP, CleanupSignalHandler);
   signal(SIGINT, CleanupSignalHandler);
@@ -247,16 +257,16 @@ int main(int argc, char** argv)
   std::list<SocketListener*> listeners;
 
   try {
-    TXWindow::init(dpy,"x0vncserver");
-    Geometry geo(DisplayWidth(dpy, DefaultScreen(dpy)),
-                 DisplayHeight(dpy, DefaultScreen(dpy)));
-    if (geo.getRect().is_empty()) {
-      vlog.error("Exiting with error");
-      return 1;
-    }
-    XDesktop desktop(dpy, &geo);
+//    TXWindow::init(dpy,"x0vncserver");
+//    Geometry geo(DisplayWidth(dpy, DefaultScreen(dpy)),
+//                 DisplayHeight(dpy, DefaultScreen(dpy)));
+//    if (geo.getRect().is_empty()) {
+//      vlog.error("Exiting with error");
+//      return 1;
+//    }
+//    XDesktop desktop(dpy, &geo);
 
-    VNCServerST server("x0vncserver", &desktop);
+    VNCServerSpawnXS server("x0vncserver");
 
     if (rfbunixpath.getValueStr()[0] != '\0') {
       listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
@@ -377,10 +387,10 @@ int main(int argc, char** argv)
           server.processSocketWriteEvent(*i);
       }
 
-      if (desktop.isRunning() && sched.goodTimeToPoll()) {
-        sched.newPass();
-        desktop.poll();
-      }
+//      if (desktop.isRunning() && sched.goodTimeToPoll()) {
+//        sched.newPass();
+//        desktop.poll();
+//      }
     }
 
   } catch (rdr::Exception &e) {
