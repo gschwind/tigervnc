@@ -209,13 +209,13 @@ void XDesktop::poll() {
   if (pb and not haveDamage)
     pb->poll(server);
   if (running) {
-    Window root, child;
-    int x, y, wx, wy;
-    unsigned int mask;
-    XQueryPointer(dpy, DefaultRootWindow(dpy), &root, &child,
-                  &x, &y, &wx, &wy, &mask);
-    x -= geometry->offsetLeft();
-    y -= geometry->offsetTop();
+    int x, y;
+    xcb_generic_error_t * e;
+    auto c = xcb_query_pointer(xcb, DefaultRootWindow(dpy));
+    auto r = xcb_query_pointer_reply(xcb, c, &e);
+    x = r->root_x - geometry->offsetLeft();
+    y = r->root_y - geometry->offsetTop();
+    free(r);
     server->setCursorPos(rfb::Point(x, y));
   }
 }
