@@ -332,7 +332,7 @@ int main(int argc, char** argv)
   signal(SIGTERM, CleanupSignalHandler);
 
   std::list<SocketListener*> listeners;
-  VNCServerSpawnXS server("x0vncserver");
+  VNCServerSpawnXS server("spawnvncserver");
 
   try {
 
