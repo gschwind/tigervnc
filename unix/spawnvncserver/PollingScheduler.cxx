@@ -27,7 +27,7 @@
 #include <stdio.h>
 #endif
 
-#include <x0vncserver/PollingScheduler.h>
+#include <spawnvncserver/PollingScheduler.h>
 
 PollingScheduler::PollingScheduler(int interval, int maxload)
 {

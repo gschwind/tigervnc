@@ -24,7 +24,7 @@
 #include <vector>
 #include <rfb/Region.h>
 #include <X11/Xlib.h>
-#include <x0vncserver/XPixelBuffer.h>
+#include <spawnvncserver/XPixelBuffer.h>
 
 using namespace rfb;
 

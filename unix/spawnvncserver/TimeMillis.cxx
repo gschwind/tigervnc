@@ -20,7 +20,7 @@
 // TimeMillis.cxx
 //
 
-#include <x0vncserver/TimeMillis.h>
+#include <spawnvncserver/TimeMillis.h>
 
 TimeMillis::TimeMillis()
 {

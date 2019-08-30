@@ -26,10 +26,10 @@
 #include <X11/Xlib.h>
 #include <rfb/VNCServer.h>
 
-#include <x0vncserver/Image.h>
+#include <spawnvncserver/Image.h>
 
 #ifdef DEBUG
-#include <x0vncserver/TimeMillis.h>
+#include <spawnvncserver/TimeMillis.h>
 #endif
 
 class PollingManager {

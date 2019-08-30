@@ -21,7 +21,7 @@
 //
 
 #include <rfb/LogWriter.h>
-#include <x0vncserver/Geometry.h>
+#include <spawnvncserver/Geometry.h>
 
 using namespace rfb;
 
