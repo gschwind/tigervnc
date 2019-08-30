@@ -264,8 +264,6 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
       return nullptr; // fatal
     }
 
-    TXWindow::init(dpy,"x0vncserver");
-
     auto desktop = new XDesktop(dpy, geometry); // TODO;
     displays.push_back(std::make_tuple(pid, dpy, geometry, desktop));
     return desktop; // TODO;
@@ -385,9 +383,13 @@ int main(int argc, char** argv)
 
       // Process any incoming X events
       for(auto &x: displays) {
-        // TODO: TXWindow wrong, remove it.
-        TXWindow::setGlobalEventHandler(std::get<3>(x));
-        TXWindow::handleXEvents(std::get<1>(x));
+        Display * dpy = std::get<1>(x);
+        XDesktop * d = std::get<3>(x);
+        while (XPending(dpy)) {
+          XEvent ev;
+          XNextEvent(dpy, &ev);
+          d->handleGlobalEvent(&ev);
+        }
       }
 
       FD_ZERO(&rfds);
@@ -495,8 +497,13 @@ int main(int argc, char** argv)
   }
 
   for(auto &x: displays) {
-    TXWindow::setGlobalEventHandler(std::get<3>(x));
-    TXWindow::handleXEvents(std::get<1>(x));
+    Display * dpy = std::get<1>(x);
+    XDesktop * d = std::get<3>(x);
+    while (XPending(dpy)) {
+      XEvent ev;
+      XNextEvent(dpy, &ev);
+      d->handleGlobalEvent(&ev);
+    }
   }
 
   // Run listener destructors; remove UNIX sockets etc

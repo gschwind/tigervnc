@@ -197,7 +197,6 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
   }
 #endif
 
-  TXWindow::setGlobalEventHandler(this);
 }
 
 XDesktop::~XDesktop() {
@@ -617,7 +616,11 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
   ev.window = DefaultRootWindow(dpy);
   if (XSendEvent(dpy, DefaultRootWindow(dpy), False, ExposureMask, (XEvent*)&ev)) {
     while (randrSyncSerial < serial) {
-      TXWindow::handleXEvents(dpy);
+      while (XPending(dpy)) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+        handleGlobalEvent(&ev);
+      }
     }
   } else {
     vlog.error("XSendEvent failed");

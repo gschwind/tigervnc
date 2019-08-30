@@ -22,7 +22,6 @@
 #define __XDESKTOP_H__
 
 #include <rfb/SDesktop.h>
-#include <tx/TXWindow.h>
 #include <unixcommon.h>
 
 #include <X11/XKBlib.h>
@@ -39,7 +38,6 @@ class XPixelBuffer;
 #define XDESKTOP_N_LEDS 3
 
 class XDesktop : public rfb::SDesktop,
-                 public TXGlobalEventHandler,
                  public QueryResultCallback
 {
 public:
