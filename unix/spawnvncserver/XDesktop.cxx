@@ -24,7 +24,7 @@
 
 #include <rfb/LogWriter.h>
 
-#include <x0vncserver/XDesktop.h>
+#include <spawnvncserver/XDesktop.h>
 
 #include <X11/XKBlib.h>
 #ifdef HAVE_XTEST
@@ -43,8 +43,8 @@ extern "C" {
 void vncSetGlueContext(Display *dpy, void *res);
 }
 #endif
-#include <x0vncserver/Geometry.h>
-#include <x0vncserver/XPixelBuffer.h>
+#include <spawnvncserver/Geometry.h>
+#include <spawnvncserver/XPixelBuffer.h>
 
 using namespace rfb;
 

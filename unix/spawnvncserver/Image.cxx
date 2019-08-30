@@ -28,7 +28,7 @@
 #include <sys/shm.h>
 
 #include <rfb/LogWriter.h>
-#include <x0vncserver/Image.h>
+#include <spawnvncserver/Image.h>
 
 //
 // ImageCleanup is used to delete Image instances automatically on

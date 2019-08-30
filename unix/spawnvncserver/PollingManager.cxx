@@ -29,7 +29,7 @@
 #include <rfb/Configuration.h>
 #include <rfb/ServerCore.h>
 
-#include <x0vncserver/PollingManager.h>
+#include <spawnvncserver/PollingManager.h>
 
 using namespace rfb;
 

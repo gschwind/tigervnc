@@ -25,8 +25,8 @@
 
 #include <rfb/PixelBuffer.h>
 #include <rfb/VNCServer.h>
-#include <x0vncserver/Image.h>
-#include <x0vncserver/PollingManager.h>
+#include <spawnvncserver/Image.h>
+#include <spawnvncserver/PollingManager.h>
 
 //
 // XPixelBuffer is an Image-based implementation of FullFramePixelBuffer.

@@ -39,10 +39,10 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include <x0vncserver/XDesktop.h>
-#include <x0vncserver/Geometry.h>
-#include <x0vncserver/Image.h>
-#include <x0vncserver/PollingScheduler.h>
+#include <spawnvncserver/XDesktop.h>
+#include <spawnvncserver/Geometry.h>
+#include <spawnvncserver/Image.h>
+#include <spawnvncserver/PollingScheduler.h>
 
 extern char buildtime[];
 
