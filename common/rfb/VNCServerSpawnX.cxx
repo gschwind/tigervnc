@@ -147,44 +147,33 @@ void VNCServerSpawnXBase::addSocket(network::Socket* sock, bool outgoing)
 }
 
 void VNCServerSpawnXBase::removeSocket(network::Socket* sock) {
-//  // - If the socket has resources allocated to it, delete them
-//  std::list<VNCSConnectionSpawnX*>::iterator ci;
-//  for (ci = clients.begin(); ci != clients.end(); ci++) {
-//    if ((*ci)->getSock() == sock) {
-//      clients.remove(*ci);
-//
-//      // - Remove any references to it
-//      if (pointerClient == *ci)
-//        pointerClient = NULL;
-//      if (clipboardClient == *ci)
-//        clipboardClient = NULL;
-//      clipboardRequestors.remove(*ci);
-//
-//      // Adjust the exit timers
-//      connectTimer.stop();
-//      if (rfb::Server::maxDisconnectionTime && clients.empty())
-//        disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
-//
-//      // - Delete the per-Socket resources
-//      delete *ci;
-//
-//      CharArray name;
-//      name.buf = sock->getPeerEndpoint();
-//      connectionsLog.status("closed: %s", name.buf);
-//
-//      // - Check that the desktop object is still required
-//      if (authClientCount() == 0)
-//        stopDesktop();
-//
-//      if (comparer)
-//        comparer->logStats();
-//
-//      return;
-//    }
-//  }
-//
-//  // - If the Socket has no resources, it may have been a closingSocket
-//  closingSockets.remove(sock);
+  // - If the socket has resources allocated to it, delete them
+  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  for (ci = clients.begin(); ci != clients.end(); ci++) {
+    if ((*ci)->getSock() == sock) {
+
+      // remove the client from the internal server.
+      (*ci)->unregister();
+
+      // Adjust the exit timers
+      connectTimer.stop();
+      if (rfb::Server::maxDisconnectionTime && clients.empty())
+        disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
+
+      // - Delete the per-Socket resources
+      delete *ci;
+      clients.remove(*ci);
+
+      CharArray name;
+      name.buf = sock->getPeerEndpoint();
+      connectionsLog.status("closed: %s", name.buf);
+
+      return;
+    }
+  }
+
+  // - If the Socket has no resources, it may have been a closingSocket
+  closingSockets.remove(sock);
 }
 
 void VNCServerSpawnXBase::processSocketReadEvent(network::Socket* sock)
