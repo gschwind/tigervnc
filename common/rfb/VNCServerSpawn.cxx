@@ -551,13 +551,16 @@ bool VNCServerSpawn::handleTimeout(Timer* t)
     return true;
   } else if (t == &idleTimer) {
     slog.info("MaxIdleTime reached, exiting");
-    desktop->terminate();
+    // TODO: terminate desktop grafully
+//    desktop->terminate();
   } else if (t == &disconnectTimer) {
     slog.info("MaxDisconnectionTime reached, exiting");
-    desktop->terminate();
+    // TODO: terminate desktop grafully
+//    desktop->terminate();
   } else if (t == &connectTimer) {
     slog.info("MaxConnectionTime reached, exiting");
-    desktop->terminate();
+    // TODO: terminate desktop grafully
+//    desktop->terminate();
   }
 
   return false;
