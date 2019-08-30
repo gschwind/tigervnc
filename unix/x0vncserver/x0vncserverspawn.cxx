@@ -385,6 +385,8 @@ int main(int argc, char** argv)
 
       // Process any incoming X events
       for(auto &x: displays) {
+        // TODO: TXWindow wrong, remove it.
+        TXWindow::setGlobalEventHandler(std::get<3>(x));
         TXWindow::handleXEvents(std::get<1>(x));
       }
 
@@ -493,6 +495,7 @@ int main(int argc, char** argv)
   }
 
   for(auto &x: displays) {
+    TXWindow::setGlobalEventHandler(std::get<3>(x));
     TXWindow::handleXEvents(std::get<1>(x));
   }
 
