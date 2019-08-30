@@ -1183,3 +1183,8 @@ void VNCSConnectionSpawnX::setSocketTimeouts()
   sock->inStream().setTimeout(timeoutms);
   sock->outStream().setTimeout(timeoutms);
 }
+
+void VNCSConnectionSpawnX::unregister()
+{
+  internal_server->removeClient(this);
+}

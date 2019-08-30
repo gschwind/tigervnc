@@ -108,6 +108,7 @@ namespace rfb {
     // VNCServerSpawn-only methods
 
     void addClient(VNCSConnectionSpawnX * client);
+    void removeClient(VNCSConnectionSpawnX * client);
 
     // Methods to get the currently set server state
 

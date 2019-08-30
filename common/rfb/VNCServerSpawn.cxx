@@ -477,6 +477,26 @@ void VNCServerSpawn::addClient(VNCSConnectionSpawnX * client)
   clients.push_back(client);
 }
 
+void VNCServerSpawn::removeClient(VNCSConnectionSpawnX * client)
+{
+  // - Remove any references to it
+  if (pointerClient == client)
+    pointerClient = NULL;
+  if (clipboardClient == client)
+    clipboardClient = NULL;
+  clipboardRequestors.remove(client);
+
+// never stop/disconnect the desktop
+//  if (authClientCount() == 0)
+//    stopDesktop();
+
+  if (comparer)
+    comparer->logStats();
+
+  clients.remove(client);
+
+}
+
 void VNCServerSpawn::approveConnection(network::Socket* sock, bool accept,
                                     const char* reason)
 {
