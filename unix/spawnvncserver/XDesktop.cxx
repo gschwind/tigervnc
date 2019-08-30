@@ -72,7 +72,7 @@ static const char * ledNames[XDESKTOP_N_LEDS] = {
 };
 
 XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
-  : dpy(dpy_), geometry(geometry_), pb(0), server(0),
+  : dpy(dpy_), xcb(XGetXCBConnection(dpy)), geometry(geometry_), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false), haveDamage(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),

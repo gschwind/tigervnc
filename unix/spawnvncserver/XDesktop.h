@@ -29,6 +29,8 @@
 #include <X11/extensions/Xdamage.h>
 #endif
 
+#include <X11/Xlib-xcb.h>
+
 #include <vncconfig/QueryConnectDialog.h>
 
 class Geometry;
@@ -67,6 +69,7 @@ public:
 
 protected:
   Display* dpy;
+  xcb_connection_t * xcb;
   Geometry* geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
