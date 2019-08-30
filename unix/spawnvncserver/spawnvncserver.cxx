@@ -185,13 +185,8 @@ int startXserver(int n, char const * const userName, char const * const home)
 
   int pid = fork();
   if (pid) { // parent
-
     vlog.info("PARENT");
-
-    sleep(10); // todo find better
-
     return pid;
-
   } else { //child
 
     vlog.info("CHILD");
@@ -243,15 +238,24 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 
     Display * dpy;
 
-    char * xx;
-    asprintf(&xx, ":%d", n);
+    char * display_str;
+    asprintf(&display_str, ":%d", n);
+
+    for(int i = 0; i < 10; ++i) { // 10 atempt.
+      sleep(1);
+      dpy = XOpenDisplay(display_str);
+      if (dpy) break;
+    }
+
   //  CharArray dpyStr(displayname.getData());
-    if (!(dpy = XOpenDisplay(xx))) {
+    if (!dpy) {
       // FIXME: Why not vlog.error(...)?
       fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-              "TODO", XDisplayName(xx));
+              "TODO", XDisplayName(display_str));
       exit(1);
     }
+
+    free(display_str);
 
     Geometry * geometry = new Geometry(DisplayWidth(dpy, DefaultScreen(dpy)),
                  DisplayHeight(dpy, DefaultScreen(dpy)));
