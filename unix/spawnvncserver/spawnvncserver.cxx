@@ -326,14 +326,6 @@ int main(int argc, char** argv)
     usage();
   }
 
-//  CharArray dpyStr(displayname.getData());
-//  if (!(dpy = XOpenDisplay(dpyStr.buf[0] ? dpyStr.buf : 0))) {
-//    // FIXME: Why not vlog.error(...)?
-//    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-//            programName, XDisplayName(dpyStr.buf));
-//    exit(1);
-//  }
-
   signal(SIGHUP, CleanupSignalHandler);
   signal(SIGINT, CleanupSignalHandler);
   signal(SIGTERM, CleanupSignalHandler);
@@ -341,14 +333,6 @@ int main(int argc, char** argv)
   std::list<SocketListener*> listeners;
 
   try {
-//    TXWindow::init(dpy,"x0vncserver");
-//    Geometry geo(DisplayWidth(dpy, DefaultScreen(dpy)),
-//                 DisplayHeight(dpy, DefaultScreen(dpy)));
-//    if (geo.getRect().is_empty()) {
-//      vlog.error("Exiting with error");
-//      return 1;
-//    }
-//    XDesktop desktop(dpy, &geo);
 
     VNCServerSpawnXS server("x0vncserver");
 
