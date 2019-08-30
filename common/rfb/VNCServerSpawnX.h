@@ -103,7 +103,7 @@ namespace rfb {
 
   protected:
 
-    virtual SDesktop * create_sdesktop() = 0;
+    virtual SDesktop * create_sdesktop(std::string const & userName) = 0;
 
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);
