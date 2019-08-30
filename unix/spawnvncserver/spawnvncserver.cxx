@@ -176,52 +176,14 @@ private:
 
 };
 
-std::list<std::tuple<int, Display*, Geometry*, XDesktop*>> displays;
-
-int startXserver(int n, char const * const userName, char const * const home)
-{
-  vlog.info("Starting the X11 server connection");
-
-
-  int pid = fork();
-  if (pid) { // parent
-    vlog.info("PARENT");
-    return pid;
-  } else { //child
-
-    vlog.info("CHILD");
-
-    char * xorg_cmd = nullptr;
-    asprintf(&xorg_cmd, "/usr/bin/env XAUTHORITY=%s/TESTAUTH "
-        "/usr/bin/startx -- :%d -config simple-vnc-xdummy.conf -logfile %s/Xorg.%d.log",
-        home, n, home, n);
-
-    vlog.info("start command %s", xorg_cmd);
-
-    // good news: su --login preserve XAUTHORITY.
-    char * exec_args[] = {
-        strdup("/bin/su"),
-        strdup("--login"),
-        strdup(userName),
-        strdup("--command"),
-        xorg_cmd,
-        0
-    };
-
-    if(execv(exec_args[0], exec_args) < 0)
-      vlog.info("execve failed");
-
-    exit(1); // terminate forked child
-
-    return -1;
-  }
-}
-
 struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
   VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
 
-  virtual SDesktop * create_sdesktop(std::string const & userName) override {
+  std::list<std::tuple<int, Display*, Geometry*, XDesktop*>> displays;
+
+  virtual SDesktop * create_sdesktop(std::string const & userName) override
+  {
 
     int n = 10 + displays.size();
 
@@ -268,6 +230,45 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
     displays.push_back(std::make_tuple(pid, dpy, geometry, desktop));
     return desktop; // TODO;
   }
+
+  int startXserver(int n, char const * const userName, char const * const home)
+  {
+    vlog.info("Starting the X11 server connection");
+
+    int pid = fork();
+    if (pid) { // parent
+      vlog.info("PARENT");
+      return pid;
+    } else { //child
+
+      vlog.info("CHILD");
+
+      char * xorg_cmd = nullptr;
+      asprintf(&xorg_cmd, "/usr/bin/env XAUTHORITY=%s/TESTAUTH "
+          "/usr/bin/startx -- :%d -config simple-vnc-xdummy.conf -logfile %s/Xorg.%d.log",
+          home, n, home, n);
+
+      vlog.info("start command %s", xorg_cmd);
+
+      // good news: su --login preserve XAUTHORITY.
+      char * exec_args[] = {
+          strdup("/bin/su"),
+          strdup("--login"),
+          strdup(userName),
+          strdup("--command"),
+          xorg_cmd,
+          0
+      };
+
+      if(execv(exec_args[0], exec_args) < 0)
+        vlog.info("execve failed");
+
+      exit(1); // terminate forked child
+
+      return -1;
+    }
+  }
+
 };
 
 char* programName;
@@ -331,10 +332,9 @@ int main(int argc, char** argv)
   signal(SIGTERM, CleanupSignalHandler);
 
   std::list<SocketListener*> listeners;
+  VNCServerSpawnXS server("x0vncserver");
 
   try {
-
-    VNCServerSpawnXS server("x0vncserver");
 
     if (rfbunixpath.getValueStr()[0] != '\0') {
       listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
@@ -366,7 +366,7 @@ int main(int argc, char** argv)
       std::list<Socket*>::iterator i;
 
       // Process any incoming X events
-      for(auto &x: displays) {
+      for(auto &x: server.displays) {
         Display * dpy = std::get<1>(x);
         XDesktop * d = std::get<3>(x);
         while (XPending(dpy)) {
@@ -379,7 +379,7 @@ int main(int argc, char** argv)
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
-      for (auto &x: displays) {
+      for (auto &x: server.displays) {
         FD_SET(ConnectionNumber(std::get<1>(x)), &rfds);
       }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
@@ -467,7 +467,7 @@ int main(int argc, char** argv)
 
       if (sched.goodTimeToPoll()) {
         sched.newPass();
-        for(auto &x: displays) {
+        for(auto &x: server.displays) {
           if (std::get<3>(x)) {
             std::get<3>(x)->poll();
           }
@@ -480,7 +480,7 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  for(auto &x: displays) {
+  for(auto &x: server.displays) {
     Display * dpy = std::get<1>(x);
     XDesktop * d = std::get<3>(x);
     while (XPending(dpy)) {
