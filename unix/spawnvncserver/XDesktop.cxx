@@ -71,6 +71,18 @@ static const char * ledNames[XDESKTOP_N_LEDS] = {
   "Scroll Lock", "Num Lock", "Caps Lock"
 };
 
+xcb_screen_t * _screen_of_display(xcb_connection_t *c, int screen)
+{
+  xcb_screen_iterator_t iter;
+
+  iter = xcb_setup_roots_iterator(xcb_get_setup(c));
+  for (; iter.rem; --screen, xcb_screen_next(&iter))
+    if (screen == 0)
+      return iter.data;
+
+  return NULL;
+}
+
 XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
   : dpy(dpy_), xcb(XGetXCBConnection(dpy)), geometry(geometry_), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
