@@ -135,7 +135,7 @@ endif()
 # find XCB stuff
 if(UNIX AND NOT APPLE)
 	include(FindPkgConfig)
-	pkg_check_modules(XCB REQUIRED xcb xcb-damage xcb-xtest x11-xcb)
+	pkg_check_modules(XCB REQUIRED xcb xcb-damage xcb-xtest xcb-xfixes x11-xcb)
 endif()
 
 # Check for zlib
