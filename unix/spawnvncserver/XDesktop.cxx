@@ -118,7 +118,7 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
 XDesktop::XDesktop(char const * displayName)
   : xcb(0), geometry(0, 0), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
-    oldButtonMask(0), haveXtest(false), haveDamage(false),
+    oldButtonMask(0), haveXtest(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
@@ -142,6 +142,8 @@ XDesktop::XDesktop(char const * displayName)
 
   default_root = _screen_of_display(xcb, default_screen)->root;
   vlog.debug("Root win id = 0x%x", default_root);
+
+  update_default_visual();
 
   {
     auto c = xcb_get_geometry(xcb, default_root);
@@ -359,8 +361,41 @@ void XDesktop::poll() {
 void XDesktop::processPendingXEvent()
 {
   xcb_generic_event_t * ev;
-  while(ev = xcb_poll_for_event(xcb)) {
+  while((ev = xcb_poll_for_event(xcb))) {
     handleGlobalEvent(ev);
+  }
+}
+
+void XDesktop::update_default_visual()
+{
+
+  /* you init the connection and screen_nbr */
+  screen = _screen_of_display(xcb, default_screen);
+
+  printf("found screen %p\n", screen);
+  if (screen != nullptr) {
+    xcb_depth_iterator_t depth_iter;
+    depth_iter = xcb_screen_allowed_depths_iterator(screen);
+    for (; depth_iter.rem; xcb_depth_next(&depth_iter)) {
+      xcb_visualtype_iterator_t visual_iter;
+
+      visual_iter = xcb_depth_visuals_iterator(depth_iter.data);
+      for (; visual_iter.rem; xcb_visualtype_next(&visual_iter)) {
+
+        xcb_visual_data[visual_iter.data->visual_id] = visual_iter.data;
+        xcb_visual_depth[visual_iter.data->visual_id] = depth_iter.data->depth;
+
+        if(visual_iter.data->_class == XCB_VISUAL_CLASS_TRUE_COLOR
+            and depth_iter.data->depth == 32) {
+          xcb_default_visual_type = visual_iter.data;
+        }
+
+        if(visual_iter.data->visual_id == screen->root_visual
+            and depth_iter.data->depth == screen->root_depth) {
+          xcb_root_visual_type = visual_iter.data;
+        }
+      }
+    }
   }
 }
 
@@ -374,20 +409,15 @@ void XDesktop::start(VNCServer* vs) {
   if (not r)
     throw Exception("Cannot get pointer mapping");
 
-
-  unsigned char btnMap[8];
   int numButtons = xcb_get_pointer_mapping_map_length(r);
   maxButtons = (numButtons > 8) ? 8 : numButtons;
   vlog.info("Enabling %d button%s of X pointer device",
             maxButtons, (maxButtons != 1) ? "s" : "");
   free(r);
 
-  // Create an ImageFactory instance for producing Image objects.
-  ImageFactory factory((bool)useShm);
-
   // Create pixel buffer and provide it to the server object.
-  pb = new XPixelBuffer(dpy, factory, geometry.getRect());
-  vlog.info("Allocated %s", pb->getImage()->classDesc());
+  pb = new XPixelBuffer(xcb, xcb_root_visual_type, default_root, geometry.getRect());
+//  vlog.info("Allocated %s", pb->getImage()->classDesc());
 
   server = vs;
   server->setPixelBuffer(pb, computeScreenLayout());
@@ -443,25 +473,25 @@ bool XDesktop::isRunning() {
 void XDesktop::queryConnection(network::Socket* sock,
                                const char* userName)
 {
-  assert(isRunning());
-
-  if (queryConnectSock) {
-    server->approveConnection(sock, false, "Another connection is currently being queried.");
-    return;
-  }
-
-  if (!userName)
-    userName = "(anonymous)";
-
-  queryConnectSock = sock;
-
-  CharArray address(sock->getPeerAddress());
-  delete queryConnectDialog;
-  queryConnectDialog = new QueryConnectDialog(dpy, address.buf,
-                                              userName,
-                                              queryConnectTimeout,
-                                              this);
-  queryConnectDialog->map();
+//  assert(isRunning());
+//
+//  if (queryConnectSock) {
+//    server->approveConnection(sock, false, "Another connection is currently being queried.");
+//    return;
+//  }
+//
+//  if (!userName)
+//    userName = "(anonymous)";
+//
+//  queryConnectSock = sock;
+//
+//  CharArray address(sock->getPeerAddress());
+//  delete queryConnectDialog;
+//  queryConnectDialog = new QueryConnectDialog(dpy, address.buf,
+//                                              userName,
+//                                              queryConnectTimeout,
+//                                              this);
+//  queryConnectDialog->map();
 }
 
 void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
@@ -544,7 +574,7 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
     else {
       // XKeysymToKeycode() doesn't respect state, so we have to use
       // something slightly more complex
-      keycode = XkbKeysymToKeycode(dpy, keysym);
+      keycode = 0;//XkbKeysymToKeycode(dpy, keysym);
     }
   }
 
@@ -588,12 +618,12 @@ rfb::ScreenSet ZZcomputeScreenLayout(xcb_connection_t * xcb, xcb_window_t root, 
   // make request
   std::vector<xcb_randr_get_crtc_info_cookie_t> ckx(xcb_randr_get_screen_resources_crtcs_length(randr_resources));
   xcb_randr_crtc_t * crtc_list = xcb_randr_get_screen_resources_crtcs(randr_resources);
-  for (unsigned k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
+  for (int k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
     ckx[k] = xcb_randr_get_crtc_info(xcb, crtc_list[k], XCB_CURRENT_TIME);
   }
 
   // gather result
-  for (unsigned k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
+  for (int k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
     auto * r = xcb_randr_get_crtc_info_reply(xcb, ckx[k], 0);
     if(r != nullptr) {
       crtc_info[crtc_list[k]] = r;
@@ -909,14 +939,14 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
       return true;
 
     rect.setXYWH(dev->area.x, dev->area.y, dev->area.width, dev->area.height);
-    rect = rect.translate(Point(-geometry.x, -geometry.y));
+    rect = rect.translate(Point(-geometry.offsetLeft(), -geometry.offsetTop()));
     server->add_changed(rect);
 
     return true;
 #endif
 #ifdef HAVE_XFIXES
   } else if (ev->response_type == (xfixesEventBase + XCB_XFIXES_CURSOR_NOTIFY)) {
-    auto const * cev = reinterpret_cast<xcb_xfixes_cursor_notify_event_t>(ev);
+    auto const * cev = reinterpret_cast<xcb_xfixes_cursor_notify_event_t*>(ev);
 
     if (!running)
       return true;
@@ -929,7 +959,7 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
 #ifdef HAVE_XRANDR
   } else if (ev->response_type == XCB_EXPOSE) {
     auto const * eev = reinterpret_cast<xcb_expose_event_t*>(ev);
-    randrSyncSerial = eev->serial;
+    randrSyncSerial = eev->sequence;
 
     return false;
 
@@ -948,10 +978,8 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
     }
 
     if ((cev->width != pb->width() || (cev->height != pb->height()))) {
-      // Recreate pixel buffer
-      ImageFactory factory((bool)useShm);
       delete pb;
-      pb = new XPixelBuffer(dpy, factory, geometry.getRect());
+      pb = new XPixelBuffer(xcb, xcb_root_visual_type, default_root, geometry.getRect());
       server->setPixelBuffer(pb, computeScreenLayout());
 
       // Mark entire screen as changed
@@ -963,14 +991,15 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
   } else if (ev->response_type == (xrandrEventBase + XCB_RANDR_NOTIFY)) {
     auto const * rev = reinterpret_cast<xcb_randr_notify_event_t*>(ev);
 
-    if (rev->window != default_root) {
-      return false;
-    }
-
     if (!running)
       return false;
 
-    if (rev->subtype == XCB_RANDR_NOTIFY_CRTC_CHANGE) {
+    if (rev->subCode == XCB_RANDR_NOTIFY_CRTC_CHANGE) {
+
+      if (rev->u.cc.window != default_root) {
+        return false;
+      }
+
       server->setScreenLayout(computeScreenLayout());
     }
 
