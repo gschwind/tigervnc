@@ -41,8 +41,6 @@
 
 #include <spawnvncserver/XDesktop.h>
 #include <spawnvncserver/Geometry.h>
-#include <spawnvncserver/Image.h>
-#include <spawnvncserver/PollingScheduler.h>
 
 extern char buildtime[];
 
@@ -331,8 +329,6 @@ int main(int argc, char** argv)
         (*i)->setFilter(&fileTcpFilter);
     delete[] hostsData;
 
-    PollingScheduler sched((int)pollingCycle, (int)maxProcessorUsage);
-
     while (!caughtSignal) {
       int wait_ms;
       struct timeval tv;
@@ -370,17 +366,7 @@ int main(int argc, char** argv)
         }
       }
 
-      if (!clients_connected)
-        sched.reset();
-
-      wait_ms = 0;
-
-      if (sched.isRunning()) {
-        wait_ms = sched.millisRemaining();
-        if (wait_ms > 500) {
-          wait_ms = 500;
-        }
-      }
+      wait_ms = 500;
 
       soonestTimeout(&wait_ms, Timer::checkTimeouts());
 
@@ -388,10 +374,8 @@ int main(int argc, char** argv)
       tv.tv_usec = (wait_ms % 1000) * 1000;
 
       // Do the wait...
-      sched.sleepStarted();
       int n = select(FD_SETSIZE, &rfds, &wfds, 0,
                      wait_ms ? &tv : NULL);
-      sched.sleepFinished();
 
       if (n < 0) {
         if (errno == EINTR) {
@@ -434,14 +418,6 @@ int main(int argc, char** argv)
           server.processSocketWriteEvent(*i);
       }
 
-      if (sched.goodTimeToPoll()) {
-        sched.newPass();
-        for(auto &x: server.displays) {
-          if (std::get<1>(x)) {
-            std::get<1>(x)->poll();
-          }
-        }
-      }
     }
 
   } catch (rdr::Exception &e) {

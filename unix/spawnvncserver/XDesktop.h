@@ -59,6 +59,7 @@ public:
 
   void processPendingXEvent();
   int getFd() { return xcb_get_file_descriptor(xcb); }
+  void update_default_visual();
 
   // -=- SDesktop interface
   virtual void start(rfb::VNCServer* vs);
@@ -85,6 +86,16 @@ protected:
   xcb_connection_t * xcb;
   int default_screen;
   xcb_window_t default_root;
+
+  xcb_screen_t * screen;
+
+  uint32_t xcb_default_visual_depth;
+  xcb_visualtype_t * xcb_default_visual_type;
+  xcb_visualtype_t * xcb_root_visual_type;
+
+  std::map<xcb_visualid_t, xcb_visualtype_t*> xcb_visual_data;
+  std::map<xcb_visualid_t, uint32_t> xcb_visual_depth;
+
   Geometry geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
