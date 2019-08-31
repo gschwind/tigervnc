@@ -34,6 +34,8 @@
 
 #include <vncconfig/QueryConnectDialog.h>
 
+#include <spawnvncserver/Geometry.h>
+
 class Geometry;
 class XPixelBuffer;
 
@@ -44,7 +46,7 @@ class XDesktop : public rfb::SDesktop,
                  public QueryResultCallback
 {
 public:
-  XDesktop(Display* dpy_, Geometry *geometry);
+  XDesktop(char const * display_name);
   virtual ~XDesktop();
 
   XDesktop(XDesktop const &) = delete;
@@ -54,6 +56,10 @@ public:
       int * event = nullptr, int * error = nullptr) const;
 
   void poll();
+
+  void processPendingXEvent();
+  int getFd() { return xcb_get_file_descriptor(xcb); }
+
   // -=- SDesktop interface
   virtual void start(rfb::VNCServer* vs);
   virtual void stop();
@@ -69,17 +75,17 @@ public:
                                        const rfb::ScreenSet& layout);
 
   // -=- TXGlobalEventHandler interface
-  virtual bool handleGlobalEvent(XEvent* ev);
+  virtual bool handleGlobalEvent(xcb_generic_event_t* ev);
 
   // -=- QueryResultCallback interface
   virtual void queryApproved();
   virtual void queryRejected();
 
 protected:
-  Display* dpy;
   xcb_connection_t * xcb;
+  int default_screen;
   xcb_window_t default_root;
-  Geometry* geometry;
+  Geometry geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
   QueryConnectDialog* queryConnectDialog;
