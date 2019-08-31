@@ -200,7 +200,15 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 
 #ifdef HAVE_XDAMAGE
   if (queryExtension("DAMAGE", nullptr, &xdamageEventBase, nullptr)) {
-    haveDamage = true;
+    vlog.info("DAMAGE extension found");
+    xcb_generic_error_t * e;
+    auto c = xcb_damage_query_version(xcb, XCB_DAMAGE_MAJOR_VERSION, XCB_DAMAGE_MINOR_VERSION);
+    auto r = xcb_damage_query_version_reply(xcb, c, &e);
+    if (r != nullptr and e == nullptr) {
+      vlog.info("DAMAGE extension present - version %d.%d",r->major_version,r->minor_version);
+      haveDamage = true;
+    }
+    free(r);
   } else {
 #endif
     vlog.info("DAMAGE extension not present");
@@ -297,7 +305,7 @@ void XDesktop::start(VNCServer* vs) {
 #ifdef HAVE_XDAMAGE
   if (haveDamage) {
     damage = xcb_generate_id(xcb);
-    xcb_damage_create(xcb, damage, DefaultRootWindow(dpy), XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
+    xcb_damage_create(xcb, damage, default_root, XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
   }
 #endif
 
