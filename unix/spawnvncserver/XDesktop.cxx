@@ -55,6 +55,8 @@ void vncSetGlueContext(Display *dpy, void *res);
 #include <spawnvncserver/Geometry.h>
 #include <spawnvncserver/XPixelBuffer.h>
 
+#include <common/unixcommon.h>
+
 #include <xcb/xtest.h>
 
 using namespace rfb;
@@ -527,20 +529,91 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
 void XDesktop::clientCutText(const char* str) {
 }
 
+rfb::ScreenSet ZZcomputeScreenLayout(xcb_connection_t * xcb, xcb_window_t root, OutputIdMap &outputIdMap)
+{
+  rfb::ScreenSet layout;
+  OutputIdMap newIdMap;
+
+  /** update root size infos **/
+  auto ck0 = xcb_get_geometry(xcb, root);
+  auto ck1 = xcb_randr_get_screen_resources(xcb, root);
+
+  // geometry is used as fallback. maybe do not resquest it each time.
+  auto * geometry = xcb_get_geometry_reply(xcb, ck0, nullptr);
+  auto * randr_resources = xcb_randr_get_screen_resources_reply(xcb, ck1, nullptr);
+
+  if(geometry == nullptr or randr_resources == nullptr) {
+    throw Exception("FATAL: cannot read root window attributes");
+  }
+
+  std::map<xcb_randr_crtc_t, xcb_randr_get_crtc_info_reply_t *> crtc_info;
+  // make request
+  std::vector<xcb_randr_get_crtc_info_cookie_t> ckx(xcb_randr_get_screen_resources_crtcs_length(randr_resources));
+  xcb_randr_crtc_t * crtc_list = xcb_randr_get_screen_resources_crtcs(randr_resources);
+  for (unsigned k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
+    ckx[k] = xcb_randr_get_crtc_info(xcb, crtc_list[k], XCB_CURRENT_TIME);
+  }
+
+  // gather result
+  for (unsigned k = 0; k < xcb_randr_get_screen_resources_crtcs_length(randr_resources); ++k) {
+    auto * r = xcb_randr_get_crtc_info_reply(xcb, ckx[k], 0);
+    if(r != nullptr) {
+      crtc_info[crtc_list[k]] = r;
+
+      auto outputId = crtc_list[k];
+      auto x = outputIdMap.find(outputId);
+      if (x == outputIdMap.end()) {
+        // lookup for a new Id
+        rdr::U32 id;
+        OutputIdMap::const_iterator iter;
+        while (true) {
+          id = rand();
+          for (iter = outputIdMap.begin(); iter != outputIdMap.end(); ++iter) {
+            if (iter->second == id)
+              break;
+          }
+          if (iter == outputIdMap.end())
+            break;
+        }
+
+        newIdMap[outputId] = id;
+
+      } else {
+        newIdMap[outputId] = x->second;
+      }
+
+      switch (r->rotation) {
+      case RR_Rotate_90:
+      case RR_Rotate_270:
+        std::swap(r->width, r->height);
+        break;
+      }
+
+      layout.add_screen(rfb::Screen(newIdMap[outputId], r->x, r->y, r->width, r->height, 0));
+
+    }
+
+  }
+
+  /* Only keep the entries that are currently active */
+  outputIdMap = newIdMap;
+
+  /*
+   * Make sure we have something to display. Hopefully it's just temporary
+   * that we have no active outputs...
+   */
+  if (layout.num_screens() == 0)
+    layout.add_screen(rfb::Screen(0, geometry->x, geometry->y, geometry->width, geometry->height, 0));
+
+  return layout;
+}
+
 ScreenSet XDesktop::computeScreenLayout()
 {
   ScreenSet layout;
 
 #ifdef HAVE_XRANDR
-  XRRScreenResources *res = XRRGetScreenResources(dpy, DefaultRootWindow(dpy));
-  if (!res) {
-    vlog.error("XRRGetScreenResources failed");
-    return layout;
-  }
-  vncSetGlueContext(dpy, res);
-
-  layout = ::computeScreenLayout(&outputIdMap);
-  XRRFreeScreenResources(res);
+  layout = ::ZZcomputeScreenLayout(xcb, default_root, outputIdMap);
 
   // Adjust the layout relative to the geometry
   ScreenSet::iterator iter, iter_next;
