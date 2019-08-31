@@ -915,7 +915,7 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
       return false;
     }
 
-    XRRUpdateConfiguration(ev);
+//    XRRUpdateConfiguration(ev);
     geometry->recalc(cev->width, cev->height);
 
     if (!running) {
