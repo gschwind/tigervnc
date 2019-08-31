@@ -7,9 +7,6 @@ include_directories(${CMAKE_SOURCE_DIR}/common)
 add_executable(spawnvncserver
   buildtime.c
   Geometry.cxx
-  Image.cxx
-  PollingManager.cxx
-  PollingScheduler.cxx
   TimeMillis.cxx
   qnum_to_xorgevdev.c
   qnum_to_xorgkbd.c
