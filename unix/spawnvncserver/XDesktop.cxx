@@ -46,6 +46,8 @@ void vncSetGlueContext(Display *dpy, void *res);
 #include <spawnvncserver/Geometry.h>
 #include <spawnvncserver/XPixelBuffer.h>
 
+#include <xcb/xtest.h>
+
 using namespace rfb;
 
 extern const unsigned short code_map_qnum_to_xorgevdev[];
@@ -326,17 +328,17 @@ void XDesktop::queryConnection(network::Socket* sock,
 void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
 #ifdef HAVE_XTEST
   if (!haveXtest) return;
-  XTestFakeMotionEvent(dpy, DefaultScreen(dpy),
-                       geometry->offsetLeft() + pos.x,
-                       geometry->offsetTop() + pos.y,
-                       CurrentTime);
+  xcb_test_fake_input(xcb, XCB_MOTION_NOTIFY, 0, XCB_CURRENT_TIME,
+      default_root,
+      geometry->offsetLeft() + pos.x,
+      geometry->offsetTop() + pos.y, 0);
   if (buttonMask != oldButtonMask) {
     for (int i = 0; i < maxButtons; i++) {
       if ((buttonMask ^ oldButtonMask) & (1<<i)) {
         if (buttonMask & (1<<i)) {
-          XTestFakeButtonEvent(dpy, i+1, True, CurrentTime);
+          xcb_test_fake_input(xcb, XCB_BUTTON_PRESS, i+1, XCB_CURRENT_TIME, default_root, 0, 0, 0);
         } else {
-          XTestFakeButtonEvent(dpy, i+1, False, CurrentTime);
+          xcb_test_fake_input(xcb, XCB_BUTTON_RELEASE, i+1, XCB_CURRENT_TIME, default_root, 0, 0, 0);
         }
       }
     }
@@ -418,7 +420,7 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
 
   vlog.debug("%d %s", keycode, down ? "down" : "up");
 
-  XTestFakeKeyEvent(dpy, keycode, down, CurrentTime);
+  xcb_test_fake_input(xcb, down?XCB_KEY_PRESS:XCB_KEY_RELEASE, keycode, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
 #endif
 }
 
