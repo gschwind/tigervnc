@@ -175,15 +175,19 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
   }
 
 #ifdef HAVE_XTEST
-  int xtestEventBase;
-  int xtestErrorBase;
+  if (queryExtension("XTEST")) {
+    xcb_generic_error_t * e;
+    auto c = xcb_test_get_version(xcb, XCB_TEST_MAJOR_VERSION, XCB_TEST_MINOR_VERSION);
+    auto r = xcb_test_get_version_reply(xcb, c, &e);
+    if (r != nullptr and e == nullptr) {
+      vlog.info("XTest extension present - version %d.%d",r->major_version,r->minor_version);
+      xcb_test_grab_control(xcb, True);
+      haveXtest = true;
+    }
+    free(r);
+  }
 
-  if (XTestQueryExtension(dpy, &xtestEventBase,
-                          &xtestErrorBase, &major, &minor)) {
-    XTestGrabControl(dpy, True);
-    vlog.info("XTest extension present - version %d.%d",major,minor);
-    haveXtest = true;
-  } else {
+  if (not haveXtest) {
 #endif
     vlog.info("XTest extension not present");
     vlog.info("Unable to inject events or display while server is grabbed");
