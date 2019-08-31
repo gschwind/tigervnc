@@ -115,19 +115,42 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
   }
 }
 
-XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
-  : dpy(dpy_), xcb(0), geometry(geometry_), pb(0), server(0),
+XDesktop::XDesktop(char const * displayName)
+  : xcb(0), geometry(0, 0), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false), haveDamage(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
 
-  xcb = XGetXCBConnection(dpy);
-  // TODO: DefaultScreen is available in xcb at connection, when not using
-  // Xlib at all.
-  default_root = _screen_of_display(xcb, 0)->root;
+  for(int i = 0; i < 10; ++i) { // 10 atempt.
+    sleep(1);
+    xcb = xcb_connect(displayName, &default_screen);
+    if (not xcb_connection_has_error(xcb))
+      break;
+    xcb_disconnect(xcb);
+    xcb = nullptr;
+  }
+
+
+  if (!xcb) {
+    // FIXME: Why not vlog.error(...)?
+    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
+            "TODO", displayName);
+    throw Exception();
+  }
+
+  default_root = _screen_of_display(xcb, default_screen)->root;
   vlog.debug("Root win id = 0x%x", default_root);
+
+  {
+    auto c = xcb_get_geometry(xcb, default_root);
+    auto r = xcb_get_geometry_reply(xcb, c, nullptr);
+    if (!r)
+      throw Exception("Error while getting geometry");
+    geometry = Geometry(r->width, r->height);
+    free(r);
+  }
 
   if (not queryExtension("XKEYBOARD", nullptr, &xkbEventBase, nullptr)) {
     vlog.error("XKEYBOARD extension not present");
@@ -326,12 +349,20 @@ void XDesktop::poll() {
   if (running) {
     int x, y;
     xcb_generic_error_t * e;
-    auto c = xcb_query_pointer(xcb, DefaultRootWindow(dpy));
+    auto c = xcb_query_pointer(xcb, default_root);
     auto r = xcb_query_pointer_reply(xcb, c, &e);
-    x = r->root_x - geometry->offsetLeft();
-    y = r->root_y - geometry->offsetTop();
+    x = r->root_x - geometry.offsetLeft();
+    y = r->root_y - geometry.offsetTop();
     free(r);
     server->setCursorPos(rfb::Point(x, y));
+  }
+}
+
+void XDesktop::processPendingXEvent()
+{
+  xcb_generic_event_t * ev;
+  while(ev = xcb_poll_for_event(xcb)) {
+    handleGlobalEvent(ev);
   }
 }
 
@@ -357,7 +388,7 @@ void XDesktop::start(VNCServer* vs) {
   ImageFactory factory((bool)useShm);
 
   // Create pixel buffer and provide it to the server object.
-  pb = new XPixelBuffer(dpy, factory, geometry->getRect());
+  pb = new XPixelBuffer(dpy, factory, geometry.getRect());
   vlog.info("Allocated %s", pb->getImage()->classDesc());
 
   server = vs;
@@ -440,8 +471,8 @@ void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
   if (!haveXtest) return;
   xcb_test_fake_input(xcb, XCB_MOTION_NOTIFY, 0, XCB_CURRENT_TIME,
       default_root,
-      geometry->offsetLeft() + pos.x,
-      geometry->offsetTop() + pos.y, 0);
+      geometry.offsetLeft() + pos.x,
+      geometry.offsetTop() + pos.y, 0);
   if (buttonMask != oldButtonMask) {
     for (int i = 0; i < maxButtons; i++) {
       if ((buttonMask ^ oldButtonMask) & (1<<i)) {
@@ -626,13 +657,13 @@ ScreenSet XDesktop::computeScreenLayout()
 
   // Adjust the layout relative to the geometry
   ScreenSet::iterator iter, iter_next;
-  Point offset(-geometry->offsetLeft(), -geometry->offsetTop());
+  Point offset(-geometry.offsetLeft(), -geometry.offsetTop());
   for (iter = layout.begin();iter != layout.end();iter = iter_next) {
     iter_next = iter; ++iter_next;
     iter->dimensions = iter->dimensions.translate(offset);
-    if (iter->dimensions.enclosed_by(geometry->getRect()))
+    if (iter->dimensions.enclosed_by(geometry.getRect()))
         continue;
-    iter->dimensions = iter->dimensions.intersect(geometry->getRect());
+    iter->dimensions = iter->dimensions.intersect(geometry.getRect());
     if (iter->dimensions.is_empty()) {
       layout.remove_screen(iter->id);
     }
@@ -641,8 +672,8 @@ ScreenSet XDesktop::computeScreenLayout()
 
   // Make sure that we have at least one screen
   if (layout.num_screens() == 0)
-    layout.add_screen(rfb::Screen(0, 0, 0, geometry->width(),
-                                  geometry->height(), 0));
+    layout.add_screen(rfb::Screen(0, 0, 0, geometry.width(),
+                                  geometry.height(), 0));
 
   return layout;
 }
@@ -850,19 +881,19 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
 }
 
 
-bool XDesktop::handleGlobalEvent(XEvent* ev) {
-  vlog.debug("XEvent %d", ev->type);
-  if (ev->type == (xkbEventBase + XkbEventCode)) {
-    XkbEvent *kb = (XkbEvent *)ev;
-
-    if (kb->any.xkb_type != XkbIndicatorStateNotify)
+bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
+  vlog.debug("XEvent %d", ev->response_type);
+  if (ev->response_type == xkbEventBase) {
+    if (reinterpret_cast<xcb_xkb_new_keyboard_notify_event_t*>(ev)->xkbType != XCB_XKB_INDICATOR_STATE_NOTIFY)
       return false;
 
-    vlog.debug("Got indicator update, mask is now 0x%x", kb->indicators.state);
+    auto const * kb = reinterpret_cast<xcb_xkb_indicator_state_notify_event_t*>(ev);
+
+    vlog.debug("Got indicator update, mask is now 0x%x", kb->state);
 
     ledState = 0;
     for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
-      if (kb->indicators.state & ledMasks[i])
+      if (kb->state & ledMasks[i])
         ledState |= 1u << i;
     }
 
@@ -871,52 +902,48 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
 
     return true;
 #ifdef HAVE_XDAMAGE
-  } else if (ev->type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
+  } else if (ev->response_type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
     vlog.debug("Damage notify");
-    XDamageNotifyEvent* dev;
+    auto const * dev = reinterpret_cast<xcb_damage_notify_event_t*>(ev);
     Rect rect;
 
     if (!running)
       return true;
 
-    dev = (XDamageNotifyEvent*)ev;
     rect.setXYWH(dev->area.x, dev->area.y, dev->area.width, dev->area.height);
-    rect = rect.translate(Point(-geometry->offsetLeft(),
-                                -geometry->offsetTop()));
+    rect = rect.translate(Point(-geometry.x, -geometry.y));
     server->add_changed(rect);
 
     return true;
 #endif
 #ifdef HAVE_XFIXES
-  } else if (ev->type == (xfixesEventBase + XFixesCursorNotify)) {
-    XFixesCursorNotifyEvent* cev;
+  } else if (ev->response_type == (xfixesEventBase + XCB_XFIXES_CURSOR_NOTIFY)) {
+    auto const * cev = reinterpret_cast<xcb_xfixes_cursor_notify_event_t>(ev);
 
     if (!running)
       return true;
 
-    cev = (XFixesCursorNotifyEvent*)ev;
-
-    if (cev->subtype != XFixesDisplayCursorNotify)
+    if (cev->subtype != XCB_XFIXES_CURSOR_NOTIFY_DISPLAY_CURSOR)
       return false;
 
     return setCursor();
 #endif
 #ifdef HAVE_XRANDR
-  } else if (ev->type == Expose) {
-    XExposeEvent* eev = (XExposeEvent*)ev;
+  } else if (ev->response_type == XCB_EXPOSE) {
+    auto const * eev = reinterpret_cast<xcb_expose_event_t*>(ev);
     randrSyncSerial = eev->serial;
 
     return false;
 
-  } else if (ev->type == ConfigureNotify) {
-    XConfigureEvent* cev = (XConfigureEvent*)ev;
+  } else if (ev->response_type == ConfigureNotify) {
+    auto const * cev = reinterpret_cast<xcb_configure_notify_event_t*>(ev);
 
-    if (cev->window != DefaultRootWindow(dpy)) {
+    if (cev->window != default_root) {
       return false;
     }
 
 //    XRRUpdateConfiguration(ev);
-    geometry->recalc(cev->width, cev->height);
+    geometry.recalc(cev->width, cev->height);
 
     if (!running) {
       return false;
@@ -926,7 +953,7 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
       // Recreate pixel buffer
       ImageFactory factory((bool)useShm);
       delete pb;
-      pb = new XPixelBuffer(dpy, factory, geometry->getRect());
+      pb = new XPixelBuffer(dpy, factory, geometry.getRect());
       server->setPixelBuffer(pb, computeScreenLayout());
 
       // Mark entire screen as changed
@@ -935,17 +962,17 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
 
     return true;
 
-  } else if (ev->type == (xrandrEventBase + RRNotify)) {
-    XRRNotifyEvent* rev = (XRRNotifyEvent*)ev;
+  } else if (ev->response_type == (xrandrEventBase + XCB_RANDR_NOTIFY)) {
+    auto const * rev = reinterpret_cast<xcb_randr_notify_event_t*>(ev);
 
-    if (rev->window != DefaultRootWindow(dpy)) {
+    if (rev->window != default_root) {
       return false;
     }
 
     if (!running)
       return false;
 
-    if (rev->subtype == RRNotify_CrtcChange) {
+    if (rev->subtype == XCB_RANDR_NOTIFY_CRTC_CHANGE) {
       server->setScreenLayout(computeScreenLayout());
     }
 
