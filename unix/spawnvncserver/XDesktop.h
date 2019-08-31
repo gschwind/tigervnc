@@ -27,6 +27,7 @@
 #include <X11/XKBlib.h>
 #ifdef HAVE_XDAMAGE
 #include <X11/extensions/Xdamage.h>
+#include <xcb/damage.h>
 #endif
 
 #include <X11/Xlib-xcb.h>
@@ -45,6 +46,10 @@ class XDesktop : public rfb::SDesktop,
 public:
   XDesktop(Display* dpy_, Geometry *geometry);
   virtual ~XDesktop();
+
+  bool queryExtension(char const * name, int * opcode = nullptr,
+      int * event = nullptr, int * error = nullptr) const;
+
   void poll();
   // -=- SDesktop interface
   virtual void start(rfb::VNCServer* vs);
