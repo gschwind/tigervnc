@@ -36,6 +36,7 @@
 #endif
 #ifdef HAVE_XFIXES
 #include <X11/extensions/Xfixes.h>
+#include <xcb/xfixes.h>
 #endif
 #ifdef HAVE_XRANDR
 #include <X11/extensions/Xrandr.h>
@@ -209,11 +210,8 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 #endif
 
 #ifdef HAVE_XFIXES
-  int xfixesErrorBase;
-
-  if (XFixesQueryExtension(dpy, &xfixesEventBase, &xfixesErrorBase)) {
-    XFixesSelectCursorInput(dpy, DefaultRootWindow(dpy),
-                            XFixesDisplayCursorNotifyMask);
+  if (queryExtension(XFIXES_NAME, nullptr, &xfixesEventBase, nullptr)) {
+    xcb_xfixes_select_cursor_input(xcb, default_root, XCB_XFIXES_CURSOR_NOTIFY_MASK_DISPLAY_CURSOR);
   } else {
 #endif
     vlog.info("XFIXES extension not present");
@@ -810,10 +808,10 @@ void XDesktop::queryRejected()
 
 bool XDesktop::setCursor()
 {
-  XFixesCursorImage *cim;
-
-  cim = XFixesGetCursorImage(dpy);
-  if (cim == NULL)
+  xcb_generic_error_t * e;
+  auto c = xcb_xfixes_get_cursor_image(xcb);
+  auto cim = xcb_xfixes_get_cursor_image_reply(xcb, c, &e);
+  if (cim == nullptr)
     return false;
 
   // Copied from XserverDesktop::setCursor() in
@@ -821,12 +819,12 @@ bool XDesktop::setCursor()
   // handle long -> U32 conversion for 64-bit Xlib
   rdr::U8* cursorData;
   rdr::U8 *out;
-  const unsigned long *pixels;
+  const uint32_t *pixels;
 
   cursorData = new rdr::U8[cim->width * cim->height * 4];
 
   // Un-premultiply alpha
-  pixels = cim->pixels;
+  pixels = xcb_xfixes_get_cursor_image_cursor_image(cim);
   out = cursorData;
   for (int y = 0; y < cim->height; y++) {
     for (int x = 0; x < cim->width; x++) {
@@ -852,6 +850,6 @@ bool XDesktop::setCursor()
   }
 
   delete [] cursorData;
-  XFree(cim);
+  free(cim);
   return true;
 }
