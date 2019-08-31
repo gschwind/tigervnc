@@ -180,7 +180,7 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
   VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
 
-  std::list<std::tuple<int, Display*, Geometry*, XDesktop*>> displays;
+  std::list<std::tuple<int, XDesktop*>> displays;
 
   virtual SDesktop * create_sdesktop(std::string const & userName) override
   {
@@ -198,36 +198,11 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 
     vlog.info("Starting the X11 display connection");
 
-    Display * dpy;
-
     char * display_str;
     asprintf(&display_str, ":%d", n);
 
-    for(int i = 0; i < 10; ++i) { // 10 atempt.
-      sleep(1);
-      dpy = XOpenDisplay(display_str);
-      if (dpy) break;
-    }
-
-  //  CharArray dpyStr(displayname.getData());
-    if (!dpy) {
-      // FIXME: Why not vlog.error(...)?
-      fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-              "TODO", XDisplayName(display_str));
-      exit(1);
-    }
-
-    free(display_str);
-
-    Geometry * geometry = new Geometry(DisplayWidth(dpy, DefaultScreen(dpy)),
-                 DisplayHeight(dpy, DefaultScreen(dpy)));
-    if (geometry->getRect().is_empty()) {
-      vlog.error("Exiting with error");
-      return nullptr; // fatal
-    }
-
-    auto desktop = new XDesktop(dpy, geometry); // TODO;
-    displays.push_back(std::make_tuple(pid, dpy, geometry, desktop));
+    auto desktop = new XDesktop(display_str);
+    displays.push_back(std::make_tuple(pid, desktop));
     return desktop; // TODO;
   }
 
@@ -367,23 +342,14 @@ int main(int argc, char** argv)
 
       // Process any incoming X events
       for(auto &x: server.displays) {
-        Display * dpy = std::get<1>(x);
-        XDesktop * d = std::get<3>(x);
-        XFlush(dpy);
-        while (XPending(dpy)) {
-          XEvent ev;
-          XNextEvent(dpy, &ev);
-          d->handleGlobalEvent(&ev);
-          XFlush(dpy);
-        }
-
+        std::get<1>(x)->processPendingXEvent();
       }
 
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
       for (auto &x: server.displays) {
-        FD_SET(ConnectionNumber(std::get<1>(x)), &rfds);
+        FD_SET(std::get<1>(x)->getFd(), &rfds);
       }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
            i != listeners.end();
@@ -471,8 +437,8 @@ int main(int argc, char** argv)
       if (sched.goodTimeToPoll()) {
         sched.newPass();
         for(auto &x: server.displays) {
-          if (std::get<3>(x)) {
-            std::get<3>(x)->poll();
+          if (std::get<1>(x)) {
+            std::get<1>(x)->poll();
           }
         }
       }
@@ -484,14 +450,7 @@ int main(int argc, char** argv)
   }
 
   for(auto &x: server.displays) {
-    Display * dpy = std::get<1>(x);
-    XDesktop * d = std::get<3>(x);
-    while (XPending(dpy)) {
-      XEvent ev;
-      XNextEvent(dpy, &ev);
-      d->handleGlobalEvent(&ev);
-      XFlush(dpy);
-    }
+    std::get<1>(x)->processPendingXEvent();
   }
 
   // Run listener destructors; remove UNIX sockets etc
