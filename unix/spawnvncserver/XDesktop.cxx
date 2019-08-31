@@ -211,7 +211,20 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 
 #ifdef HAVE_XFIXES
   if (queryExtension(XFIXES_NAME, nullptr, &xfixesEventBase, nullptr)) {
-    xcb_xfixes_select_cursor_input(xcb, default_root, XCB_XFIXES_CURSOR_NOTIFY_MASK_DISPLAY_CURSOR);
+    {
+      xcb_generic_error_t * e;
+      auto c = xcb_xfixes_query_version(xcb, XCB_XFIXES_MAJOR_VERSION, XCB_XFIXES_MINOR_VERSION);
+      auto r = xcb_xfixes_query_version_reply(xcb, c, &e);
+      if (r != nullptr and e == nullptr) {
+        vlog.info("Xfixes extension present - version %d.%d",r->major_version,r->minor_version);
+        xcb_xfixes_select_cursor_input(xcb, default_root, XCB_XFIXES_CURSOR_NOTIFY_MASK_DISPLAY_CURSOR);
+      } else {
+        vlog.error("Xfixes not found");
+        throw Exception();
+      }
+      free(r);
+    }
+
   } else {
 #endif
     vlog.info("XFIXES extension not present");
