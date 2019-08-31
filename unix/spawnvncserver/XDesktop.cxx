@@ -90,6 +90,11 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
+
+  // TODO: DefaultScreen is available in xcb at connection, when not using
+  // Xlib at all.
+  default_root = _screen_of_display(xcb, DefaultScreen(dpy))->root;
+
   int major, minor;
 
   int xkbOpcode, xkbErrorBase;
