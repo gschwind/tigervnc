@@ -47,6 +47,7 @@
 #ifdef HAVE_XRANDR
 #include <X11/extensions/Xrandr.h>
 #include <RandrGlue.h>
+#include <xcb/randr.h>
 extern "C" {
 void vncSetGlueContext(Display *dpy, void *res);
 }
@@ -283,16 +284,23 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 #endif
 
 #ifdef HAVE_XRANDR
-  int xrandrErrorBase;
 
   randrSyncSerial = 0;
-  if (XRRQueryExtension(dpy, &xrandrEventBase, &xrandrErrorBase)) {
-    vlog.info("RANDR extension found");
-    XRRSelectInput(dpy, DefaultRootWindow(dpy),
-                   RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask);
+  if (queryExtension("RANDR", nullptr, &xrandrEventBase, nullptr)) {
+    xcb_generic_error_t * e;
+    auto c = xcb_randr_query_version(xcb, XCB_RANDR_MAJOR_VERSION, XCB_RANDR_MINOR_VERSION);
+    auto r = xcb_randr_query_version_reply(xcb, c, &e);
+    if (r != nullptr and e == nullptr) {
+      vlog.info("RANDR extension present - version %d.%d",r->major_version,r->minor_version);
+    }
+    free(r);
+    xcb_randr_select_input(xcb, default_root, XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE|XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE);
+
     /* Override TXWindow::init input mask */
-    XSelectInput(dpy, DefaultRootWindow(dpy),
-                 PropertyChangeMask | StructureNotifyMask | ExposureMask);
+    uint32_t mask = XCB_EVENT_MASK_PROPERTY_CHANGE
+        | XCB_EVENT_MASK_EXPOSURE
+        | XCB_EVENT_MASK_STRUCTURE_NOTIFY;
+    xcb_change_window_attributes(xcb, default_root, XCB_CW_EVENT_MASK, &mask);
 
   } else {
 #endif
