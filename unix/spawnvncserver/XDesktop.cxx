@@ -26,7 +26,13 @@
 
 #include <spawnvncserver/XDesktop.h>
 
+// C++ HACK until xkb do not use explicit anymore.
+#define explicit c_explicit
+#include <xcb/xkb.h>
+#undef explicit
+
 #include <X11/XKBlib.h>
+
 #ifdef HAVE_XTEST
 #include <X11/extensions/XTest.h>
 #endif
@@ -107,53 +113,86 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
 }
 
 XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
-  : dpy(dpy_), xcb(XGetXCBConnection(dpy)), geometry(geometry_), pb(0), server(0),
+  : dpy(dpy_), xcb(0), geometry(geometry_), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false), haveDamage(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
 
+  xcb = XGetXCBConnection(dpy);
   // TODO: DefaultScreen is available in xcb at connection, when not using
   // Xlib at all.
-  default_root = _screen_of_display(xcb, DefaultScreen(dpy))->root;
+  default_root = _screen_of_display(xcb, 0)->root;
+  vlog.debug("Root win id = 0x%x", default_root);
 
-  int major, minor;
-
-  int xkbOpcode, xkbErrorBase;
-
-  major = XkbMajorVersion;
-  minor = XkbMinorVersion;
-  if (!XkbQueryExtension(dpy, &xkbOpcode, &xkbEventBase,
-                         &xkbErrorBase, &major, &minor)) {
+  if (not queryExtension("XKEYBOARD", nullptr, &xkbEventBase, nullptr)) {
     vlog.error("XKEYBOARD extension not present");
     throw Exception();
+  } else {
+    xcb_generic_error_t * e;
+    auto c = xcb_xkb_use_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
+    auto r = xcb_xkb_use_extension_reply(xcb, c, &e);
+    if (r == nullptr or e != nullptr) {
+      vlog.error("XKEYBOARD extension not present");
+      throw Exception();
+    }
+    free(r);
   }
 
-  XkbSelectEvents(dpy, XkbUseCoreKbd, XkbIndicatorStateNotifyMask,
-                  XkbIndicatorStateNotifyMask);
+  uint16_t all_map_parts = XCB_XKB_MAP_PART_KEY_TYPES |
+                        XCB_XKB_MAP_PART_KEY_SYMS |
+                        XCB_XKB_MAP_PART_MODIFIER_MAP |
+                        XCB_XKB_MAP_PART_EXPLICIT_COMPONENTS |
+                        XCB_XKB_MAP_PART_KEY_ACTIONS |
+                        XCB_XKB_MAP_PART_KEY_BEHAVIORS |
+                        XCB_XKB_MAP_PART_VIRTUAL_MODS |
+                        XCB_XKB_MAP_PART_VIRTUAL_MOD_MAP;
+
+  xcb_xkb_select_events(xcb, XCB_XKB_ID_USE_CORE_KBD,
+      XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
+      0, // do not clear
+      XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY, // select all
+      all_map_parts, all_map_parts, // for all part
+      nullptr);
 
   // figure out bit masks for the indicators we are interested in
   for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
-    Atom a;
-    int shift;
-    Bool on;
-
-    a = XInternAtom(dpy, ledNames[i], True);
-    if (!a || !XkbGetNamedIndicator(dpy, a, &shift, &on, NULL, NULL))
+    xcb_generic_error_t * e;
+    auto c0 = xcb_intern_atom(xcb, True, strlen(ledNames[i]), ledNames[i]);
+    auto a = xcb_intern_atom_reply(xcb, c0, &e);
+    if (not a)
+      continue;
+    auto c1 = xcb_xkb_get_named_indicator(xcb, XCB_XKB_ID_USE_CORE_KBD,
+        XCB_XKB_LED_CLASS_DFLT_XI_CLASS, XCB_XKB_ID_DFLT_XI_ID, a->atom);
+    auto r = xcb_xkb_get_named_indicator_reply(xcb, c1, &e);
+    free(a);
+    if (not r)
       continue;
 
-    ledMasks[i] = 1u << shift;
+    ledMasks[i] = 1u << r->ndx;
     vlog.debug("Mask for '%s' is 0x%x", ledNames[i], ledMasks[i]);
-    if (on)
+    if (r->on)
       ledState |= 1u << i;
+    free(r);
   }
 
   // X11 unfortunately uses keyboard driver specific keycodes and provides no
   // direct way to query this, so guess based on the keyboard mapping
-  XkbDescPtr desc = XkbGetKeyboard(dpy, XkbAllComponentsMask, XkbUseCoreKbd);
-  if (desc && desc->names) {
-    char *keycodes = XGetAtomName(dpy, desc->names->keycodes);
+  xcb_generic_error_t * e;
+//  auto c = xcb_xkb_get_kbd_by_name(xcb, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_GBN_DETAIL_KEY_NAMES, 0, False);
+//  auto r = xcb_xkb_get_kbd_by_name_reply(xcb, c, &e);
+
+  auto c = xcb_xkb_get_names(xcb, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_NAME_DETAIL_KEYCODES);
+  auto r = xcb_xkb_get_names_reply(xcb, c, &e);
+  if (r) {
+    auto names_value_list = reinterpret_cast<xcb_xkb_get_names_value_list_t*>(xcb_xkb_get_names_value_list(r));
+
+    auto c = xcb_get_atom_name(xcb, names_value_list->keycodesName);
+    auto r = xcb_get_atom_name_reply(xcb, c, &e);
+    char *keycodes = xcb_get_atom_name_name(r);
+
+    vlog.info("keycodeName = %s", xcb_get_atom_name_name(r));
 
     if (keycodes) {
       if (strncmp("evdev", keycodes, strlen("evdev")) == 0) {
@@ -167,13 +206,15 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
       } else {
         vlog.info("Unknown keycode '%s', no codemap\n", keycodes);
       }
-      XFree(keycodes);
     } else {
       vlog.debug("Unable to get keycode map\n");
     }
 
-    XkbFreeKeyboard(desc, XkbAllComponentsMask, True);
+    free(r);
+
   }
+
+  free(r);
 
 #ifdef HAVE_XTEST
   if (queryExtension("XTEST")) {
@@ -200,7 +241,7 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 
 #ifdef HAVE_XDAMAGE
   if (queryExtension("DAMAGE", nullptr, &xdamageEventBase, nullptr)) {
-    vlog.info("DAMAGE extension found");
+    vlog.info("DAMAGE extension found %d", xdamageEventBase);
     xcb_generic_error_t * e;
     auto c = xcb_damage_query_version(xcb, XCB_DAMAGE_MAJOR_VERSION, XCB_DAMAGE_MINOR_VERSION);
     auto r = xcb_damage_query_version_reply(xcb, c, &e);
@@ -246,11 +287,13 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
 
   randrSyncSerial = 0;
   if (XRRQueryExtension(dpy, &xrandrEventBase, &xrandrErrorBase)) {
+    vlog.info("RANDR extension found");
     XRRSelectInput(dpy, DefaultRootWindow(dpy),
                    RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask);
     /* Override TXWindow::init input mask */
     XSelectInput(dpy, DefaultRootWindow(dpy),
                  PropertyChangeMask | StructureNotifyMask | ExposureMask);
+
   } else {
 #endif
     vlog.info("RANDR extension not present");
@@ -305,7 +348,11 @@ void XDesktop::start(VNCServer* vs) {
 #ifdef HAVE_XDAMAGE
   if (haveDamage) {
     damage = xcb_generate_id(xcb);
-    xcb_damage_create(xcb, damage, default_root, XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
+    auto c = xcb_damage_create_checked(xcb, damage, default_root, XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
+    auto e = xcb_request_check(xcb, c);
+    if (e)
+      vlog.error("ERROR");
+    vlog.debug("create damage %d", damage);
   }
 #endif
 
@@ -322,8 +369,10 @@ void XDesktop::stop() {
   running = false;
 
 #ifdef HAVE_XDAMAGE
-  if (haveDamage)
+  if (haveDamage) {
     xcb_damage_destroy(xcb, damage);
+    vlog.debug("destroy damage %d", damage);
+  }
 #endif
 
   delete queryConnectDialog;
@@ -461,7 +510,7 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
   else
     pressedKeys.erase(keysym);
 
-  vlog.debug("%d %s", keycode, down ? "down" : "up");
+  vlog.debug("keycode = 0x%x %s", keycode, down ? "down" : "up");
 
   xcb_test_fake_input(xcb, down?XCB_KEY_PRESS:XCB_KEY_RELEASE, keycode, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
 #endif
@@ -678,11 +727,13 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
   ev.window = DefaultRootWindow(dpy);
   if (XSendEvent(dpy, DefaultRootWindow(dpy), False, ExposureMask, (XEvent*)&ev)) {
     while (randrSyncSerial < serial) {
+      XFlush(dpy);
       while (XPending(dpy)) {
         XEvent ev;
         XNextEvent(dpy, &ev);
         handleGlobalEvent(&ev);
       }
+      XFlush(dpy);
     }
   } else {
     vlog.error("XSendEvent failed");
@@ -709,7 +760,8 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
 
 
 bool XDesktop::handleGlobalEvent(XEvent* ev) {
-  if (ev->type == xkbEventBase + XkbEventCode) {
+  vlog.debug("XEvent %d", ev->type);
+  if (ev->type == (xkbEventBase + XkbEventCode)) {
     XkbEvent *kb = (XkbEvent *)ev;
 
     if (kb->any.xkb_type != XkbIndicatorStateNotify)
@@ -728,7 +780,8 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
 
     return true;
 #ifdef HAVE_XDAMAGE
-  } else if (ev->type == xdamageEventBase) {
+  } else if (ev->type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
+    vlog.debug("Damage notify");
     XDamageNotifyEvent* dev;
     Rect rect;
 
@@ -744,7 +797,7 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
     return true;
 #endif
 #ifdef HAVE_XFIXES
-  } else if (ev->type == xfixesEventBase + XFixesCursorNotify) {
+  } else if (ev->type == (xfixesEventBase + XFixesCursorNotify)) {
     XFixesCursorNotifyEvent* cev;
 
     if (!running)
@@ -791,7 +844,7 @@ bool XDesktop::handleGlobalEvent(XEvent* ev) {
 
     return true;
 
-  } else if (ev->type == xrandrEventBase + RRNotify) {
+  } else if (ev->type == (xrandrEventBase + RRNotify)) {
     XRRNotifyEvent* rev = (XRRNotifyEvent*)ev;
 
     if (rev->window != DefaultRootWindow(dpy)) {
@@ -832,8 +885,10 @@ bool XDesktop::setCursor()
   xcb_generic_error_t * e;
   auto c = xcb_xfixes_get_cursor_image(xcb);
   auto cim = xcb_xfixes_get_cursor_image_reply(xcb, c, &e);
-  if (cim == nullptr)
+  if (cim == nullptr) {
+    vlog.debug("Cannot get the cursor image");
     return false;
+  }
 
   // Copied from XserverDesktop::setCursor() in
   // unix/xserver/hw/vnc/XserverDesktop.cc and adapted to
