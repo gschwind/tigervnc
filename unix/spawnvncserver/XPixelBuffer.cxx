@@ -23,53 +23,53 @@
 
 #include <vector>
 #include <rfb/Region.h>
-#include <X11/Xlib.h>
 #include <spawnvncserver/XPixelBuffer.h>
+
+#include <cairo/cairo.h>
+#include <cairo/cairo-xcb.h>
 
 using namespace rfb;
 
-XPixelBuffer::XPixelBuffer(Display *dpy, ImageFactory &factory,
-                           const Rect &rect)
+XPixelBuffer::XPixelBuffer(xcb_connection_t *xcb, xcb_visualtype_t * visual, xcb_drawable_t d, const rfb::Rect &rect)
   : FullFramePixelBuffer(),
-    m_poller(0),
-    m_dpy(dpy),
-    m_image(factory.newImage(dpy, rect.width(), rect.height())),
+    m_xcb(xcb),
+    m_visual(visual),
     m_offsetLeft(rect.tl.x),
     m_offsetTop(rect.tl.y)
 {
+
   // Fill in the PixelFormat structure of the parent class.
-  format = PixelFormat(m_image->xim->bits_per_pixel,
-                       m_image->xim->depth,
-                       (m_image->xim->byte_order == MSBFirst),
-                       true,
-                       m_image->xim->red_mask   >> (ffs(m_image->xim->red_mask) - 1),
-                       m_image->xim->green_mask >> (ffs(m_image->xim->green_mask) - 1),
-                       m_image->xim->blue_mask  >> (ffs(m_image->xim->blue_mask) - 1),
-                       ffs(m_image->xim->red_mask) - 1,
-                       ffs(m_image->xim->green_mask) - 1,
-                       ffs(m_image->xim->blue_mask) - 1);
+  format = PixelFormat(
+      m_visual->bits_per_rgb_value,
+      m_visual->bits_per_rgb_value*3,
+      true/*truecolor*/, true/*is bigendian?*/,
+      m_visual->red_mask >> (ffs(m_visual->red_mask) - 1),
+      m_visual->green_mask >> (ffs(m_visual->green_mask) - 1),
+      m_visual->blue_mask >> (ffs(m_visual->blue_mask) - 1),
+      ffs(m_visual->red_mask) - 1,
+      ffs(m_visual->green_mask) - 1,
+      ffs(m_visual->blue_mask) - 1);
 
   // Set up the remaining data of the parent class.
   width_ = rect.width();
   height_ = rect.height();
-  data = (rdr::U8 *)m_image->xim->data;
 
   // Calculate the distance in pixels between two subsequent scan
   // lines of the framebuffer. This may differ from image width.
-  stride = m_image->xim->bytes_per_line * 8 / m_image->xim->bits_per_pixel;
+  stride = width_*3;
 
-  // Get initial screen image from the X display.
-  m_image->get(DefaultRootWindow(m_dpy), m_offsetLeft, m_offsetTop);
+  data = new rdr::U8[stride*height_]; //TODO 32 bit.
 
-  // PollingManager will detect changed pixels.
-  m_poller = new PollingManager(dpy, getImage(), factory,
-                                m_offsetLeft, m_offsetTop);
+  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_RGB24, width_, height_, stride);
+  m_surf_xcb_root = cairo_xcb_surface_create(xcb, d, m_visual, width_, height_);
+
 }
 
 XPixelBuffer::~XPixelBuffer()
 {
-  delete m_poller;
-  delete m_image;
+  cairo_surface_destroy(m_surf_frame_bufer);
+  cairo_surface_destroy(m_surf_xcb_root);
+  delete[] data;
 }
 
 void
