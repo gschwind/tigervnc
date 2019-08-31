@@ -273,13 +273,13 @@ XDesktop::XDesktop(char const * displayName)
     auto r = xcb_damage_query_version_reply(xcb, c, &e);
     if (r != nullptr and e == nullptr) {
       vlog.info("DAMAGE extension present - version %d.%d",r->major_version,r->minor_version);
-      haveDamage = true;
     }
     free(r);
   } else {
 #endif
     vlog.info("DAMAGE extension not present");
     vlog.info("Will have to poll screen for changes");
+    throw Exception("DAMAGE extension is mandatory");
 #ifdef HAVE_XDAMAGE
   }
 #endif
@@ -344,8 +344,6 @@ XDesktop::~XDesktop() {
 
 
 void XDesktop::poll() {
-  if (pb and not haveDamage)
-    pb->poll(server);
   if (running) {
     int x, y;
     xcb_generic_error_t * e;
@@ -395,7 +393,7 @@ void XDesktop::start(VNCServer* vs) {
   server->setPixelBuffer(pb, computeScreenLayout());
 
 #ifdef HAVE_XDAMAGE
-  if (haveDamage) {
+  {
     damage = xcb_generate_id(xcb);
     auto c = xcb_damage_create_checked(xcb, damage, default_root, XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
     auto e = xcb_request_check(xcb, c);
@@ -418,7 +416,7 @@ void XDesktop::stop() {
   running = false;
 
 #ifdef HAVE_XDAMAGE
-  if (haveDamage) {
+  {
     xcb_damage_destroy(xcb, damage);
     vlog.debug("destroy damage %d", damage);
   }
