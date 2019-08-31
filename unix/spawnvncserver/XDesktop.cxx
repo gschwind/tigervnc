@@ -676,167 +676,168 @@ static void GetSmallerMode(XRRScreenResources *res,
 unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
                                        const rfb::ScreenSet& layout)
 {
-#ifdef HAVE_XRANDR
-  char buffer[2048];
-  vlog.debug("Got request for framebuffer resize to %dx%d",
-             fb_width, fb_height);
-  layout.print(buffer, sizeof(buffer));
-  vlog.debug("%s", buffer);
-
-  XRRScreenResources *res = XRRGetScreenResources(dpy, DefaultRootWindow(dpy));
-  if (!res) {
-    vlog.error("XRRGetScreenResources failed");
-    return rfb::resultProhibited;
-  }
-  vncSetGlueContext(dpy, res);
-
-  /* The client may request a screen layout which is not supported by
-     the Xserver. This happens, for example, when adjusting the size
-     of a non-fullscreen vncviewer window. To handle this and other
-     cases, we first call tryScreenLayout. If this fails, we try to
-     adjust the request to one screen with a smaller mode. */
-  vlog.debug("Testing screen layout");
-  unsigned int tryresult = ::tryScreenLayout(fb_width, fb_height, layout, &outputIdMap);
-  rfb::ScreenSet adjustedLayout;
-  if (tryresult == rfb::resultSuccess) {
-    adjustedLayout = layout;
-  } else {
-    vlog.debug("Impossible layout - trying to adjust");
-
-    ScreenSet::const_iterator firstscreen = layout.begin();
-    adjustedLayout.add_screen(*firstscreen);
-    ScreenSet::iterator iter = adjustedLayout.begin();
-    RROutput outputId = None;
-
-    for (int i = 0;i < vncRandRGetOutputCount();i++) {
-      unsigned int oi = vncRandRGetOutputId(i);
-
-      /* Known? */
-      if (outputIdMap.count(oi) == 0)
-        continue;
-
-      /* Find the corresponding screen... */
-      if (iter->id == outputIdMap[oi]) {
-        outputId = oi;
-      } else {
-        outputIdMap.erase(oi);
-      }
-    }
-
-    /* New screen */
-    if (outputId == None) {
-      int i = getPreferredScreenOutput(&outputIdMap, std::set<unsigned int>());
-      if (i != -1) {
-        outputId = vncRandRGetOutputId(i);
-      }
-    }
-    if (outputId == None) {
-      vlog.debug("Resize adjust: Could not find corresponding screen");
-      XRRFreeScreenResources(res);
-      return rfb::resultInvalid;
-    }
-    XRROutputInfo *output = XRRGetOutputInfo(dpy, res, outputId);
-    if (!output) {
-      vlog.debug("Resize adjust: XRRGetOutputInfo failed");
-      XRRFreeScreenResources(res);
-      return rfb::resultInvalid;
-    }
-    if (!output->crtc) {
-      vlog.debug("Resize adjust: Selected output has no CRTC");
-      XRRFreeScreenResources(res);
-      XRRFreeOutputInfo(output);
-      return rfb::resultInvalid;
-    }
-    XRRCrtcInfo *crtc = XRRGetCrtcInfo(dpy, res, output->crtc);
-    if (!crtc) {
-      vlog.debug("Resize adjust: XRRGetCrtcInfo failed");
-      XRRFreeScreenResources(res);
-      XRRFreeOutputInfo(output);
-      return rfb::resultInvalid;
-    }
-
-    unsigned int swidth = iter->dimensions.width();
-    unsigned int sheight = iter->dimensions.height();
-
-    switch (crtc->rotation) {
-    case RR_Rotate_90:
-    case RR_Rotate_270:
-      unsigned int swap = swidth;
-      swidth = sheight;
-      sheight = swap;
-      break;
-    }
-
-    GetSmallerMode(res, output, &swidth, &sheight);
-    XRRFreeOutputInfo(output);
-
-    switch (crtc->rotation) {
-    case RR_Rotate_90:
-    case RR_Rotate_270:
-      unsigned int swap = swidth;
-      swidth = sheight;
-      sheight = swap;
-      break;
-    }
-
-    XRRFreeCrtcInfo(crtc);
-
-    if (sheight != 0 && swidth != 0) {
-      vlog.debug("Adjusted resize request to %dx%d", swidth, sheight);
-      iter->dimensions.setXYWH(0, 0, swidth, sheight);
-      fb_width = swidth;
-      fb_height = sheight;
-    } else {
-      vlog.error("Failed to find smaller or equal screen size");
-      XRRFreeScreenResources(res);
-      return rfb::resultInvalid;
-    }
-  }
-
-  vlog.debug("Changing screen layout");
-  unsigned int ret = ::setScreenLayout(fb_width, fb_height, adjustedLayout, &outputIdMap);
-  XRRFreeScreenResources(res);
-
-  /* Send a dummy event to the root window. When this event is seen,
-     earlier change events (ConfigureNotify and/or CrtcChange) have
-     been processed. An Expose event is used for simplicity; does not
-     require any Atoms, and will not affect other applications. */
-  unsigned long serial = XNextRequest(dpy);
-  XExposeEvent ev = {}; /* zero x, y, width, height, count */
-  ev.type = Expose;
-  ev.display = dpy;
-  ev.window = DefaultRootWindow(dpy);
-  if (XSendEvent(dpy, DefaultRootWindow(dpy), False, ExposureMask, (XEvent*)&ev)) {
-    while (randrSyncSerial < serial) {
-      XFlush(dpy);
-      while (XPending(dpy)) {
-        XEvent ev;
-        XNextEvent(dpy, &ev);
-        handleGlobalEvent(&ev);
-      }
-      XFlush(dpy);
-    }
-  } else {
-    vlog.error("XSendEvent failed");
-  }
-
-  /* The protocol requires that an error is returned if the requested
-     layout could not be set. This is checked by
-     VNCSConnectionST::setDesktopSize. Another ExtendedDesktopSize
-     with reason=0 will be sent in response to the changes seen by the
-     event handler. */
-  if (adjustedLayout != layout)
-    return rfb::resultInvalid;
-
-  // Explicitly update the server state with the result as there
-  // can be corner cases where we don't get feedback from the X server
-  server->setScreenLayout(computeScreenLayout());
-
-  return ret;
-
-#else
+//#ifdef HAVE_XRANDR
+//  char buffer[2048];
+//  vlog.debug("Got request for framebuffer resize to %dx%d",
+//             fb_width, fb_height);
+//  layout.print(buffer, sizeof(buffer));
+//  vlog.debug("%s", buffer);
+//
+//  XRRScreenResources *res = XRRGetScreenResources(dpy, DefaultRootWindow(dpy));
+//  if (!res) {
+//    vlog.error("XRRGetScreenResources failed");
+//    return rfb::resultProhibited;
+//  }
+//  vncSetGlueContext(dpy, res);
+//
+//  /* The client may request a screen layout which is not supported by
+//     the Xserver. This happens, for example, when adjusting the size
+//     of a non-fullscreen vncviewer window. To handle this and other
+//     cases, we first call tryScreenLayout. If this fails, we try to
+//     adjust the request to one screen with a smaller mode. */
+//  vlog.debug("Testing screen layout");
+//  unsigned int tryresult = ::tryScreenLayout(fb_width, fb_height, layout, &outputIdMap);
+//  rfb::ScreenSet adjustedLayout;
+//  if (tryresult == rfb::resultSuccess) {
+//    adjustedLayout = layout;
+//  } else {
+//    vlog.debug("Impossible layout - trying to adjust");
+//
+//    ScreenSet::const_iterator firstscreen = layout.begin();
+//    adjustedLayout.add_screen(*firstscreen);
+//    ScreenSet::iterator iter = adjustedLayout.begin();
+//    RROutput outputId = None;
+//
+//    for (int i = 0;i < vncRandRGetOutputCount();i++) {
+//      unsigned int oi = vncRandRGetOutputId(i);
+//
+//      /* Known? */
+//      if (outputIdMap.count(oi) == 0)
+//        continue;
+//
+//      /* Find the corresponding screen... */
+//      if (iter->id == outputIdMap[oi]) {
+//        outputId = oi;
+//      } else {
+//        outputIdMap.erase(oi);
+//      }
+//    }
+//
+//    /* New screen */
+//    if (outputId == None) {
+//      int i = getPreferredScreenOutput(&outputIdMap, std::set<unsigned int>());
+//      if (i != -1) {
+//        outputId = vncRandRGetOutputId(i);
+//      }
+//    }
+//    if (outputId == None) {
+//      vlog.debug("Resize adjust: Could not find corresponding screen");
+//      XRRFreeScreenResources(res);
+//      return rfb::resultInvalid;
+//    }
+//    XRROutputInfo *output = XRRGetOutputInfo(dpy, res, outputId);
+//    if (!output) {
+//      vlog.debug("Resize adjust: XRRGetOutputInfo failed");
+//      XRRFreeScreenResources(res);
+//      return rfb::resultInvalid;
+//    }
+//    if (!output->crtc) {
+//      vlog.debug("Resize adjust: Selected output has no CRTC");
+//      XRRFreeScreenResources(res);
+//      XRRFreeOutputInfo(output);
+//      return rfb::resultInvalid;
+//    }
+//    XRRCrtcInfo *crtc = XRRGetCrtcInfo(dpy, res, output->crtc);
+//    if (!crtc) {
+//      vlog.debug("Resize adjust: XRRGetCrtcInfo failed");
+//      XRRFreeScreenResources(res);
+//      XRRFreeOutputInfo(output);
+//      return rfb::resultInvalid;
+//    }
+//
+//    unsigned int swidth = iter->dimensions.width();
+//    unsigned int sheight = iter->dimensions.height();
+//
+//    switch (crtc->rotation) {
+//    case RR_Rotate_90:
+//    case RR_Rotate_270:
+//      unsigned int swap = swidth;
+//      swidth = sheight;
+//      sheight = swap;
+//      break;
+//    }
+//
+//    GetSmallerMode(res, output, &swidth, &sheight);
+//    XRRFreeOutputInfo(output);
+//
+//    switch (crtc->rotation) {
+//    case RR_Rotate_90:
+//    case RR_Rotate_270:
+//      unsigned int swap = swidth;
+//      swidth = sheight;
+//      sheight = swap;
+//      break;
+//    }
+//
+//    XRRFreeCrtcInfo(crtc);
+//
+//    if (sheight != 0 && swidth != 0) {
+//      vlog.debug("Adjusted resize request to %dx%d", swidth, sheight);
+//      iter->dimensions.setXYWH(0, 0, swidth, sheight);
+//      fb_width = swidth;
+//      fb_height = sheight;
+//    } else {
+//      vlog.error("Failed to find smaller or equal screen size");
+//      XRRFreeScreenResources(res);
+//      return rfb::resultInvalid;
+//    }
+//  }
+//
+//  vlog.debug("Changing screen layout");
+//  unsigned int ret = ::setScreenLayout(fb_width, fb_height, adjustedLayout, &outputIdMap);
+//  XRRFreeScreenResources(res);
+//
+//  /* Send a dummy event to the root window. When this event is seen,
+//     earlier change events (ConfigureNotify and/or CrtcChange) have
+//     been processed. An Expose event is used for simplicity; does not
+//     require any Atoms, and will not affect other applications. */
+//  unsigned long serial = XNextRequest(dpy);
+//  XExposeEvent ev = {}; /* zero x, y, width, height, count */
+//  ev.type = Expose;
+//  ev.display = dpy;
+//  ev.window = DefaultRootWindow(dpy);
+//  if (XSendEvent(dpy, DefaultRootWindow(dpy), False, ExposureMask, (XEvent*)&ev)) {
+//    while (randrSyncSerial < serial) {
+//      XFlush(dpy);
+//      while (XPending(dpy)) {
+//        XEvent ev;
+//        XNextEvent(dpy, &ev);
+//        handleGlobalEvent(&ev);
+//      }
+//      XFlush(dpy);
+//    }
+//  } else {
+//    vlog.error("XSendEvent failed");
+//  }
+//
+//  /* The protocol requires that an error is returned if the requested
+//     layout could not be set. This is checked by
+//     VNCSConnectionST::setDesktopSize. Another ExtendedDesktopSize
+//     with reason=0 will be sent in response to the changes seen by the
+//     event handler. */
+//  if (adjustedLayout != layout)
+//    return rfb::resultInvalid;
+//
+//  // Explicitly update the server state with the result as there
+//  // can be corner cases where we don't get feedback from the X server
+//  server->setScreenLayout(computeScreenLayout());
+//
+//  return ret;
+//
+//#else
+//  return rfb::resultProhibited;
+//#endif /* HAVE_XRANDR */
   return rfb::resultProhibited;
-#endif /* HAVE_XRANDR */
 }
 
 
