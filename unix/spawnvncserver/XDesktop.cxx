@@ -339,11 +339,19 @@ void XDesktop::poll() {
 void XDesktop::start(VNCServer* vs) {
 
   // Determine actual number of buttons of the X pointer device.
+
+  auto c = xcb_get_pointer_mapping(xcb);
+  auto r = xcb_get_pointer_mapping_reply(xcb, c, nullptr);
+  if (not r)
+    throw Exception("Cannot get pointer mapping");
+
+
   unsigned char btnMap[8];
-  int numButtons = XGetPointerMapping(dpy, btnMap, 8);
+  int numButtons = xcb_get_pointer_mapping_map_length(r);
   maxButtons = (numButtons > 8) ? 8 : numButtons;
   vlog.info("Enabling %d button%s of X pointer device",
             maxButtons, (maxButtons != 1) ? "s" : "");
+  free(r);
 
   // Create an ImageFactory instance for producing Image objects.
   ImageFactory factory((bool)useShm);
