@@ -92,7 +92,6 @@ protected:
   network::Socket* queryConnectSock;
   int oldButtonMask;
   bool haveXtest;
-  bool haveDamage;
   int maxButtons;
   std::map<KeySym, KeyCode> pressedKeys;
   bool running;
