@@ -47,6 +47,9 @@ public:
   XDesktop(Display* dpy_, Geometry *geometry);
   virtual ~XDesktop();
 
+  XDesktop(XDesktop const &) = delete;
+  XDesktop & operator=(XDesktop const &) = delete;
+
   bool queryExtension(char const * name, int * opcode = nullptr,
       int * event = nullptr, int * error = nullptr) const;
 
@@ -88,7 +91,7 @@ protected:
   std::map<KeySym, KeyCode> pressedKeys;
   bool running;
 #ifdef HAVE_XDAMAGE
-  Damage damage;
+  xcb_damage_damage_t damage;
   int xdamageEventBase;
 #endif
   int xkbEventBase;

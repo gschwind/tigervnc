@@ -369,11 +369,14 @@ int main(int argc, char** argv)
       for(auto &x: server.displays) {
         Display * dpy = std::get<1>(x);
         XDesktop * d = std::get<3>(x);
+        XFlush(dpy);
         while (XPending(dpy)) {
           XEvent ev;
           XNextEvent(dpy, &ev);
           d->handleGlobalEvent(&ev);
+          XFlush(dpy);
         }
+
       }
 
       FD_ZERO(&rfds);
@@ -487,6 +490,7 @@ int main(int argc, char** argv)
       XEvent ev;
       XNextEvent(dpy, &ev);
       d->handleGlobalEvent(&ev);
+      XFlush(dpy);
     }
   }
 
