@@ -70,6 +70,7 @@ public:
 protected:
   Display* dpy;
   xcb_connection_t * xcb;
+  xcb_window_t default_root;
   Geometry* geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
