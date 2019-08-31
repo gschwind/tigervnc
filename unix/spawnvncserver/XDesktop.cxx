@@ -451,41 +451,42 @@ void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
 
 #ifdef HAVE_XTEST
 KeyCode XDesktop::XkbKeysymToKeycode(Display* dpy, KeySym keysym) {
-  XkbDescPtr xkb;
-  XkbStateRec state;
-  unsigned int mods;
-  unsigned keycode;
-
-  xkb = XkbGetMap(dpy, XkbAllComponentsMask, XkbUseCoreKbd);
-  if (!xkb)
-    return 0;
-
-  XkbGetState(dpy, XkbUseCoreKbd, &state);
-  // XkbStateFieldFromRec() doesn't work properly because
-  // state.lookup_mods isn't properly updated, so we do this manually
-  mods = XkbBuildCoreState(XkbStateMods(&state), state.group);
-
-  for (keycode = xkb->min_key_code;
-       keycode <= xkb->max_key_code;
-       keycode++) {
-    KeySym cursym;
-    unsigned int out_mods;
-    XkbTranslateKeyCode(xkb, keycode, mods, &out_mods, &cursym);
-    if (cursym == keysym)
-      break;
-  }
-
-  if (keycode > xkb->max_key_code)
-    keycode = 0;
-
-  XkbFreeKeyboard(xkb, XkbAllComponentsMask, True);
-
-  // Shift+Tab is usually ISO_Left_Tab, but RFB hides this fact. Do
-  // another attempt if we failed the initial lookup
-  if ((keycode == 0) && (keysym == XK_Tab) && (mods & ShiftMask))
-    return XkbKeysymToKeycode(dpy, XK_ISO_Left_Tab);
-
-  return keycode;
+//  XkbDescPtr xkb;
+//  XkbStateRec state;
+//  unsigned int mods;
+//  unsigned keycode;
+//
+//  xkb = XkbGetMap(dpy, XkbAllComponentsMask, XkbUseCoreKbd);
+//  if (!xkb)
+//    return 0;
+//
+//  XkbGetState(dpy, XkbUseCoreKbd, &state);
+//  // XkbStateFieldFromRec() doesn't work properly because
+//  // state.lookup_mods isn't properly updated, so we do this manually
+//  mods = XkbBuildCoreState(XkbStateMods(&state), state.group);
+//
+//  for (keycode = xkb->min_key_code;
+//       keycode <= xkb->max_key_code;
+//       keycode++) {
+//    KeySym cursym;
+//    unsigned int out_mods;
+//    XkbTranslateKeyCode(xkb, keycode, mods, &out_mods, &cursym);
+//    if (cursym == keysym)
+//      break;
+//  }
+//
+//  if (keycode > xkb->max_key_code)
+//    keycode = 0;
+//
+//  XkbFreeKeyboard(xkb, XkbAllComponentsMask, True);
+//
+//  // Shift+Tab is usually ISO_Left_Tab, but RFB hides this fact. Do
+//  // another attempt if we failed the initial lookup
+//  if ((keycode == 0) && (keysym == XK_Tab) && (mods & ShiftMask))
+//    return XkbKeysymToKeycode(dpy, XK_ISO_Left_Tab);
+//
+//  return keycode;
+  return 0;
 }
 #endif
 
