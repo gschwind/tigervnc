@@ -32,6 +32,7 @@
 #endif
 #ifdef HAVE_XDAMAGE
 #include <X11/extensions/Xdamage.h>
+#include <xcb/damage.h>
 #endif
 #ifdef HAVE_XFIXES
 #include <X11/extensions/Xfixes.h>
@@ -83,6 +84,25 @@ xcb_screen_t * _screen_of_display(xcb_connection_t *c, int screen)
       return iter.data;
 
   return NULL;
+}
+
+bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int * error) const
+{
+  xcb_generic_error_t * err;
+  xcb_query_extension_cookie_t ck = xcb_query_extension(xcb, strlen(name), name);
+  xcb_query_extension_reply_t * r = xcb_query_extension_reply(xcb, ck, &err);
+  if (err != nullptr or r == nullptr) {
+    return false;
+  } else {
+    if (opcode)
+      *opcode = r->major_opcode;
+    if (event)
+      *event = r->first_event;
+    if (error)
+      *error = r->first_error;
+    free(r);
+    return true;
+  }
 }
 
 XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
@@ -171,10 +191,10 @@ XDesktop::XDesktop(Display* dpy_, Geometry *geometry_)
   }
 #endif
 
-#ifdef HAVE_XDAMAGE
-  int xdamageErrorBase;
+  damage = XCB_NONE;
 
-  if (XDamageQueryExtension(dpy, &xdamageEventBase, &xdamageErrorBase)) {
+#ifdef HAVE_XDAMAGE
+  if (queryExtension("DAMAGE", nullptr, &xdamageEventBase, nullptr)) {
     haveDamage = true;
   } else {
 #endif
@@ -261,8 +281,8 @@ void XDesktop::start(VNCServer* vs) {
 
 #ifdef HAVE_XDAMAGE
   if (haveDamage) {
-    damage = XDamageCreate(dpy, DefaultRootWindow(dpy),
-                           XDamageReportRawRectangles);
+    damage = xcb_generate_id(xcb);
+    xcb_damage_create(xcb, damage, DefaultRootWindow(dpy), XCB_DAMAGE_REPORT_LEVEL_RAW_RECTANGLES);
   }
 #endif
 
@@ -280,7 +300,7 @@ void XDesktop::stop() {
 
 #ifdef HAVE_XDAMAGE
   if (haveDamage)
-    XDamageDestroy(dpy, damage);
+    xcb_damage_destroy(xcb, damage);
 #endif
 
   delete queryConnectDialog;
