@@ -54,14 +54,25 @@ XPixelBuffer::XPixelBuffer(xcb_connection_t *xcb, xcb_visualtype_t * visual, xcb
   width_ = rect.width();
   height_ = rect.height();
 
+  int cairo_stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width_);
+
   // Calculate the distance in pixels between two subsequent scan
   // lines of the framebuffer. This may differ from image width.
-  stride = width_;
+  stride = cairo_stride/4;
 
-  data = new rdr::U8[stride*height_*4];
+  data = new rdr::U8[cairo_stride*height_];
 
-  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, width_, height_, stride*4);
+  cairo_status_t status;
+
+  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, width_, height_, cairo_stride);
+  status = cairo_surface_status(m_surf_frame_bufer);
+  if (status != CAIRO_STATUS_SUCCESS)
+    printf("Cairo fail %d : %s\n", __LINE__, cairo_status_to_string(status));
+
   m_surf_xcb_root = cairo_xcb_surface_create(xcb, d, m_visual, width_, height_);
+  status = cairo_surface_status(m_surf_xcb_root);
+  if (status != CAIRO_STATUS_SUCCESS)
+    printf("Cairo fail %d : %s\n", __LINE__, cairo_status_to_string(status));
 
 }
 
@@ -75,23 +86,34 @@ XPixelBuffer::~XPixelBuffer()
 void
 XPixelBuffer::grabRegion(const rfb::Region& region)
 {
+  printf("Entering grabRegion\n");
   std::vector<Rect> rects;
   std::vector<Rect>::const_iterator i;
   region.get_rects(&rects);
+
+  // this seems to be required to flush root window to ensure sync.
+  cairo_surface_flush(m_surf_xcb_root);
   cairo_t * cr = cairo_create(m_surf_frame_bufer);
+  cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
   for (i = rects.begin(); i != rects.end(); i++) {
     // Copy pixels from the screen to the pixel buffer,
     // for the specified rectangular area of the buffer.
     auto const &r = *i;
     printf("%d %d %d %d\n", r.tl.x, r.tl.y, r.width(), r.height());
     cairo_set_source_surface(cr, m_surf_xcb_root, 0, 0);
-    //cairo_set_source_rgb(cr, 0.0, 0.5, 0.0);
     cairo_rectangle(cr, r.tl.x, r.tl.y, r.width(), r.height());
     cairo_fill(cr);
+    cairo_status_t status = cairo_status(cr);
+    if (status != CAIRO_STATUS_SUCCESS)
+      printf("Cairo fail %d : %s\n", __LINE__, cairo_status_to_string(status));
+
+    cairo_set_source_rgb(cr, 0.0, 0.5, 0.0);
+    cairo_rectangle(cr, r.tl.x+0.5, r.tl.y+0.5, r.width()-1, r.height()-1);
+    cairo_stroke(cr);
   }
 
   cairo_destroy(cr);
   cairo_surface_flush(m_surf_frame_bufer);
-
+  printf("Leaving grabRegion\n");
 }
 
