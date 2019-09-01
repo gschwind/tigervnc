@@ -48,7 +48,7 @@ class XDesktop : public rfb::SDesktop,
                  public QueryResultCallback
 {
 public:
-  XDesktop(char const * display_name);
+  XDesktop(int n, std::string const & userName);
   virtual ~XDesktop();
 
   XDesktop(XDesktop const &) = delete;
@@ -84,7 +84,10 @@ public:
   virtual void queryApproved();
   virtual void queryRejected();
 
+  int startXserver(int n, char const * const userName, char const * const home);
+
 protected:
+  int pid;
   xcb_connection_t * xcb;
   int default_screen;
   xcb_window_t default_root;
