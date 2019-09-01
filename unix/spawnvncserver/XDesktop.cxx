@@ -501,6 +501,8 @@ void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
     }
   }
   oldButtonMask = buttonMask;
+
+  xcb_flush(xcb); // do not delay inputs.
 #endif
 }
 
