@@ -98,7 +98,7 @@ namespace rfb {
 
   protected:
 
-    virtual SDesktop * create_sdesktop(std::string const & userName) = 0;
+    virtual std::shared_ptr<VNCServerSpawn> createVNCScreen(std::string const & userName) = 0;
 
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);

@@ -41,13 +41,28 @@ namespace rfb {
   class PixelBuffer;
   class KeyRemapper;
 
+  // rename SDesktop fonctions
+  // to avoir clash with SDesktop
+  // remap stop to XXdesktopStop
+  // remap start to XXdesktopStart
+  // because of clash with TimerCallback name clash
+  struct VNCServerSpawnDesktop : public SDesktop {
+    virtual void XXdesktopStart(VNCServer * vs) = 0;
+    virtual void XXdesktopStop() = 0;
+
+    void start(VNCServer * vs) override { XXdesktopStart(vs); }
+    void stop() override { XXdesktopStop(); }
+
+  };
+
   class VNCServerSpawn : public VNCServer,
+                      public VNCServerSpawnDesktop,
                       public Timer::Callback {
   public:
     // -=- Constructors
 
     //   Create a server exporting the supplied desktop.
-    VNCServerSpawn(const char* name_, SDesktop* desktop_);
+    VNCServerSpawn(const char* name_);
     virtual ~VNCServerSpawn();
 
 
@@ -179,7 +194,7 @@ namespace rfb {
     Blacklist blacklist;
     Blacklist* blHosts;
 
-    SDesktop* desktop;
+//    SDesktop* desktop;
     bool desktopStarted;
     int blockCounter;
     PixelBuffer* pb;

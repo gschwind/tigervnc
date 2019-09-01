@@ -21,7 +21,7 @@
 #ifndef __XDESKTOP_H__
 #define __XDESKTOP_H__
 
-#include <rfb/SDesktop.h>
+#include <rfb/VNCServerSpawn.h>
 #include <unixcommon.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
@@ -44,7 +44,7 @@ class XPixelBuffer;
 // number of XKb indicator leds to handle
 #define XDESKTOP_N_LEDS 3
 
-class XDesktop : public rfb::SDesktop,
+class XDesktop : public rfb::VNCServerSpawn,
                  public QueryResultCallback
 {
 public:
@@ -64,8 +64,8 @@ public:
   void update_default_visual();
 
   // -=- SDesktop interface
-  virtual void start(rfb::VNCServer* vs);
-  virtual void stop();
+  virtual void XXdesktopStart(rfb::VNCServer* vs) override;
+  virtual void XXdesktopStop();
   virtual void terminate();
   bool isRunning();
   virtual void queryConnection(network::Socket* sock,

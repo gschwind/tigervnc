@@ -176,213 +176,227 @@ private:
 
 struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
-  VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
-
-  std::list<XDesktop*> displays;
-
-  virtual SDesktop * create_sdesktop(std::string const & userName) override
-  {
-    int n = 10 + displays.size();
-    auto desktop = new XDesktop(n, userName);
-    displays.push_back(desktop);
-    return desktop;
+  VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) {
+    for(int i = 10; i < 20; ++i) {
+      free_display.push_back(i);
+    }
   }
 
+  std::list<int> free_display;
 
-};
+  virtual std::shared_ptr<VNCServerSpawn> createVNCScreen(std::string const & userName) override
+  {
+    if (free_display.empty())
+      throw Exception("No more display available");
 
-char* programName;
+    int n = free_display.front();
+    free_display.pop_front();
 
-static void printVersion(FILE *fp)
-{
-  fprintf(fp, "TigerVNC Server version %s, built %s\n",
-          PACKAGE_VERSION, buildtime);
-}
+    return std::make_shared<XDesktop>(n, userName);
+  }
 
-static void usage()
-{
-  printVersion(stderr);
-  fprintf(stderr, "\nUsage: %s [<parameters>]\n", programName);
-  fprintf(stderr, "       %s --version\n", programName);
-  fprintf(stderr,"\n"
-          "Parameters can be turned on with -<param> or off with -<param>=0\n"
-          "Parameters which take a value can be specified as "
-          "-<param> <value>\n"
-          "Other valid forms are <param>=<value> -<param>=<value> "
-          "--<param>=<value>\n"
-          "Parameter names are case-insensitive.  The parameters are:\n\n");
-  Configuration::listParams(79, 14);
-  exit(1);
-}
+  void processAllVNCScreen() {
+    // Process any incoming X events
+    for(auto &x: user_sessions) {
+      std::dynamic_pointer_cast<XDesktop>(x.second)->processPendingXEvent();
+    }
+  }
 
-int main(int argc, char** argv)
-{
-  initStdIOLoggers();
-  LogWriter::setLogParams("*:stderr:30");
+  char* programName;
 
-  programName = argv[0];
+  static void printVersion(FILE *fp)
+  {
+    fprintf(fp, "TigerVNC Server version %s, built %s\n",
+            PACKAGE_VERSION, buildtime);
+  }
 
-  Configuration::enableServerParams();
+  void usage()
+  {
+    printVersion(stderr);
+    fprintf(stderr, "\nUsage: %s [<parameters>]\n", programName);
+    fprintf(stderr, "       %s --version\n", programName);
+    fprintf(stderr,"\n"
+            "Parameters can be turned on with -<param> or off with -<param>=0\n"
+            "Parameters which take a value can be specified as "
+            "-<param> <value>\n"
+            "Other valid forms are <param>=<value> -<param>=<value> "
+            "--<param>=<value>\n"
+            "Parameter names are case-insensitive.  The parameters are:\n\n");
+    Configuration::listParams(79, 14);
+    exit(1);
+  }
 
-  for (int i = 1; i < argc; i++) {
-    if (Configuration::setParam(argv[i]))
-      continue;
+  int main(int argc, char** argv)
+  {
+    initStdIOLoggers();
+    LogWriter::setLogParams("*:stderr:30");
 
-    if (argv[i][0] == '-') {
-      if (i+1 < argc) {
-        if (Configuration::setParam(&argv[i][1], argv[i+1])) {
-          i++;
-          continue;
+    programName = argv[0];
+
+    Configuration::enableServerParams();
+
+    for (int i = 1; i < argc; i++) {
+      if (Configuration::setParam(argv[i]))
+        continue;
+
+      if (argv[i][0] == '-') {
+        if (i+1 < argc) {
+          if (Configuration::setParam(&argv[i][1], argv[i+1])) {
+            i++;
+            continue;
+          }
         }
+        if (strcmp(argv[i], "-v") == 0 ||
+            strcmp(argv[i], "-version") == 0 ||
+            strcmp(argv[i], "--version") == 0) {
+          printVersion(stdout);
+          return 0;
+        }
+        usage();
       }
-      if (strcmp(argv[i], "-v") == 0 ||
-          strcmp(argv[i], "-version") == 0 ||
-          strcmp(argv[i], "--version") == 0) {
-        printVersion(stdout);
-        return 0;
-      }
+
       usage();
     }
 
-    usage();
-  }
+    signal(SIGHUP, CleanupSignalHandler);
+    signal(SIGINT, CleanupSignalHandler);
+    signal(SIGTERM, CleanupSignalHandler);
 
-  signal(SIGHUP, CleanupSignalHandler);
-  signal(SIGINT, CleanupSignalHandler);
-  signal(SIGTERM, CleanupSignalHandler);
+    std::list<SocketListener*> listeners;
 
-  std::list<SocketListener*> listeners;
-  VNCServerSpawnXS server("spawnvncserver");
+    try {
 
-  try {
-
-    if (rfbunixpath.getValueStr()[0] != '\0') {
-      listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
-      vlog.info("Listening on %s (mode %04o)", (const char*)rfbunixpath, (int)rfbunixmode);
-    } else {
-      if (localhostOnly)
-        createLocalTcpListeners(&listeners, (int)rfbport);
-      else
-        createTcpListeners(&listeners, 0, (int)rfbport);
-      vlog.info("Listening on port %d", (int)rfbport);
-    }
-
-    const char *hostsData = hostsFile.getData();
-    FileTcpFilter fileTcpFilter(hostsData);
-    if (strlen(hostsData) != 0)
-      for (std::list<SocketListener*>::iterator i = listeners.begin();
-           i != listeners.end();
-           i++)
-        (*i)->setFilter(&fileTcpFilter);
-    delete[] hostsData;
-
-    while (!caughtSignal) {
-      int wait_ms;
-      struct timeval tv;
-      fd_set rfds, wfds;
-      std::list<Socket*> sockets;
-      std::list<Socket*>::iterator i;
-
-      // Process any incoming X events
-      for(auto &x: server.displays) {
-        x->processPendingXEvent();
+      if (rfbunixpath.getValueStr()[0] != '\0') {
+        listeners.push_back(new network::UnixListener(rfbunixpath, rfbunixmode));
+        vlog.info("Listening on %s (mode %04o)", (const char*)rfbunixpath, (int)rfbunixmode);
+      } else {
+        if (localhostOnly)
+          createLocalTcpListeners(&listeners, (int)rfbport);
+        else
+          createTcpListeners(&listeners, 0, (int)rfbport);
+        vlog.info("Listening on port %d", (int)rfbport);
       }
 
-      FD_ZERO(&rfds);
-      FD_ZERO(&wfds);
+      const char *hostsData = hostsFile.getData();
+      FileTcpFilter fileTcpFilter(hostsData);
+      if (strlen(hostsData) != 0)
+        for (std::list<SocketListener*>::iterator i = listeners.begin();
+             i != listeners.end();
+             i++)
+          (*i)->setFilter(&fileTcpFilter);
+      delete[] hostsData;
 
-      for (auto &x: server.displays) {
-        FD_SET(x->getFd(), &rfds);
-      }
-      for (std::list<SocketListener*>::iterator i = listeners.begin();
-           i != listeners.end();
-           i++)
-        FD_SET((*i)->getFd(), &rfds);
+      while (!caughtSignal) {
+        int wait_ms;
+        struct timeval tv;
+        fd_set rfds, wfds;
+        std::list<Socket*> sockets;
+        std::list<Socket*>::iterator i;
 
-      server.getSockets(&sockets);
-      int clients_connected = 0;
-      for (i = sockets.begin(); i != sockets.end(); i++) {
-        if ((*i)->isShutdown()) {
-          server.removeSocket(*i);
-          delete (*i);
-        } else {
+        processAllVNCScreen();
+
+        FD_ZERO(&rfds);
+        FD_ZERO(&wfds);
+
+        for (auto &x: user_sessions) {
+          FD_SET(std::dynamic_pointer_cast<XDesktop>(x.second)->getFd(), &rfds);
+        }
+        for (std::list<SocketListener*>::iterator i = listeners.begin();
+             i != listeners.end();
+             i++)
           FD_SET((*i)->getFd(), &rfds);
-          if ((*i)->outStream().bufferUsage() > 0)
-            FD_SET((*i)->getFd(), &wfds);
-          clients_connected++;
-        }
-      }
 
-      wait_ms = 500;
-
-      soonestTimeout(&wait_ms, Timer::checkTimeouts());
-
-      tv.tv_sec = wait_ms / 1000;
-      tv.tv_usec = (wait_ms % 1000) * 1000;
-
-      // Do the wait...
-      int n = select(FD_SETSIZE, &rfds, &wfds, 0,
-                     wait_ms ? &tv : NULL);
-
-      if (n < 0) {
-        if (errno == EINTR) {
-          vlog.debug("Interrupted select() system call");
-          continue;
-        } else {
-          throw rdr::SystemException("select", errno);
-        }
-      }
-
-      // Accept new VNC connections
-      for (std::list<SocketListener*>::iterator i = listeners.begin();
-           i != listeners.end();
-           i++) {
-        if (FD_ISSET((*i)->getFd(), &rfds)) {
-          Socket* sock = (*i)->accept();
-          if (sock) {
-            sock->outStream().setBlocking(false);
-            server.addSocket(sock);
+        getSockets(&sockets);
+        int clients_connected = 0;
+        for (i = sockets.begin(); i != sockets.end(); i++) {
+          if ((*i)->isShutdown()) {
+            removeSocket(*i);
+            delete (*i);
           } else {
-            vlog.status("Client connection rejected");
+            FD_SET((*i)->getFd(), &rfds);
+            if ((*i)->outStream().bufferUsage() > 0)
+              FD_SET((*i)->getFd(), &wfds);
+            clients_connected++;
           }
         }
+
+        wait_ms = 500;
+
+        soonestTimeout(&wait_ms, Timer::checkTimeouts());
+
+        tv.tv_sec = wait_ms / 1000;
+        tv.tv_usec = (wait_ms % 1000) * 1000;
+
+        // Do the wait...
+        int n = select(FD_SETSIZE, &rfds, &wfds, 0,
+                       wait_ms ? &tv : NULL);
+
+        if (n < 0) {
+          if (errno == EINTR) {
+            vlog.debug("Interrupted select() system call");
+            continue;
+          } else {
+            throw rdr::SystemException("select", errno);
+          }
+        }
+
+        // Accept new VNC connections
+        for (std::list<SocketListener*>::iterator i = listeners.begin();
+             i != listeners.end();
+             i++) {
+          if (FD_ISSET((*i)->getFd(), &rfds)) {
+            Socket* sock = (*i)->accept();
+            if (sock) {
+              sock->outStream().setBlocking(false);
+              addSocket(sock);
+            } else {
+              vlog.status("Client connection rejected");
+            }
+          }
+        }
+
+        Timer::checkTimeouts();
+
+        // Client list could have been changed.
+        getSockets(&sockets);
+
+        // Nothing more to do if there are no client connections.
+        if (sockets.empty())
+          continue;
+
+        // Process events on existing VNC connections
+        for (i = sockets.begin(); i != sockets.end(); i++) {
+          if (FD_ISSET((*i)->getFd(), &rfds))
+            processSocketReadEvent(*i);
+          if (FD_ISSET((*i)->getFd(), &wfds))
+            processSocketWriteEvent(*i);
+        }
+
       }
 
-      Timer::checkTimeouts();
-
-      // Client list could have been changed.
-      server.getSockets(&sockets);
-
-      // Nothing more to do if there are no client connections.
-      if (sockets.empty())
-        continue;
-
-      // Process events on existing VNC connections
-      for (i = sockets.begin(); i != sockets.end(); i++) {
-        if (FD_ISSET((*i)->getFd(), &rfds))
-          server.processSocketReadEvent(*i);
-        if (FD_ISSET((*i)->getFd(), &wfds))
-          server.processSocketWriteEvent(*i);
-      }
-
+    } catch (rdr::Exception &e) {
+      vlog.error("%s", e.str());
+      return 1;
     }
 
-  } catch (rdr::Exception &e) {
-    vlog.error("%s", e.str());
-    return 1;
+    processAllVNCScreen();
+
+    // Run listener destructors; remove UNIX sockets etc
+    for (std::list<SocketListener*>::iterator i = listeners.begin();
+         i != listeners.end();
+         i++) {
+      delete *i;
+    }
+
+    vlog.info("Terminated");
+    return 0;
   }
 
-  for(auto &x: server.displays) {
-    x->processPendingXEvent();
-  }
+};
 
-  // Run listener destructors; remove UNIX sockets etc
-  for (std::list<SocketListener*>::iterator i = listeners.begin();
-       i != listeners.end();
-       i++) {
-    delete *i;
-  }
 
-  vlog.info("Terminated");
-  return 0;
+
+int main(int argc, char** argv)
+{
+  return VNCServerSpawnXS("spawnvncserver").main(argc, argv);
 }

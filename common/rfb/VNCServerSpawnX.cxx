@@ -208,7 +208,8 @@ VNCServerSpawn * VNCServerSpawnXBase::get_user_session(std::string const & userN
   if (x != user_sessions.end()) {
     return x->second.get();
   } else {
-    auto session = std::make_shared<VNCServerSpawn>("DummyServerName", create_sdesktop(userName));
+    // FIXME: handle exceptions.
+    auto session = createVNCScreen(userName);
     user_sessions[userName] = session;
     return session.get();
   }

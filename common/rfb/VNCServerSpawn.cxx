@@ -74,8 +74,8 @@ static LogWriter connectionsLog("Connections");
 
 // -=- Constructors/Destructor
 
-VNCServerSpawn::VNCServerSpawn(const char* name_, SDesktop* desktop_)
-  : blHosts(&blacklist), desktop(desktop_), desktopStarted(false),
+VNCServerSpawn::VNCServerSpawn(const char* name_)
+  : blHosts(&blacklist), desktopStarted(false),
     blockCounter(0), pb(0), ledState(ledUnknown),
     name(strDup(name_)), pointerClient(0), clipboardClient(0),
     comparer(0), cursor(new Cursor(0, 0, Point(), NULL)),
@@ -386,7 +386,7 @@ void VNCServerSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down)
     }
   }
 
-  desktop->keyEvent(keysym, keycode, down);
+  SDesktop::keyEvent(keysym, keycode, down);
 }
 
 void VNCServerSpawn::pointerEvent(VNCSConnectionSpawnX* client,
@@ -405,14 +405,14 @@ void VNCServerSpawn::pointerEvent(VNCSConnectionSpawnX* client,
   else
     pointerClient = NULL;
 
-  desktop->pointerEvent(pos, buttonMask);
+  SDesktop::pointerEvent(pos, buttonMask);
 }
 
 void VNCServerSpawn::handleClipboardRequest(VNCSConnectionSpawnX* client)
 {
   clipboardRequestors.push_back(client);
   if (clipboardRequestors.size() == 1)
-    desktop->handleClipboardRequest();
+    SDesktop::handleClipboardRequest();
 }
 
 void VNCServerSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
@@ -425,7 +425,7 @@ void VNCServerSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
       return;
     clipboardClient = NULL;
   }
-  desktop->handleClipboardAnnounce(available);
+  SDesktop::handleClipboardAnnounce(available);
 }
 
 void VNCServerSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
@@ -433,7 +433,7 @@ void VNCServerSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
 {
   if (client != clipboardClient)
     return;
-  desktop->handleClipboardData(data);
+  SDesktop::handleClipboardData(data);
 }
 
 unsigned int VNCServerSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
@@ -450,7 +450,7 @@ unsigned int VNCServerSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
   // FIXME: the desktop will call back to VNCServerSpawn and an extra set
   // of ExtendedDesktopSize messages will be sent. This is okay
   // protocol-wise, but unnecessary.
-  result = desktop->setScreenLayout(fb_width, fb_height, layout);
+  result = SDesktop::setScreenLayout(fb_width, fb_height, layout);
   if (result != resultSuccess)
     return result;
 
@@ -630,7 +630,7 @@ void VNCServerSpawn::startDesktop()
 {
   if (!desktopStarted) {
     slog.debug("starting desktop");
-    desktop->start(this);
+    XXdesktopStart(this);
     if (!pb)
       throw Exception("SDesktop::start() did not set a valid PixelBuffer");
     desktopStarted = true;
@@ -646,7 +646,7 @@ void VNCServerSpawn::stopDesktop()
   if (desktopStarted) {
     slog.debug("stopping desktop");
     desktopStarted = false;
-    desktop->stop();
+    XXdesktopStop();
     stopFrameClock();
   }
 }
