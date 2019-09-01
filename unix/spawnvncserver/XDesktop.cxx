@@ -910,7 +910,6 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
 
 
 bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
-  vlog.debug("XEvent %d", ev->response_type);
   if (ev->response_type == xkbEventBase) {
     if (reinterpret_cast<xcb_xkb_new_keyboard_notify_event_t*>(ev)->xkbType != XCB_XKB_INDICATOR_STATE_NOTIFY)
       return false;
@@ -931,7 +930,6 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
     return true;
 #ifdef HAVE_XDAMAGE
   } else if (ev->response_type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
-    vlog.debug("Damage notify");
     auto const * dev = reinterpret_cast<xcb_damage_notify_event_t*>(ev);
     Rect rect;
 
