@@ -901,7 +901,7 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
 
       return true;
     } else if (xkbType == XCB_XKB_NEW_KEYBOARD_NOTIFY or xkbType == XCB_XKB_MAP_NOTIFY) {
-      // revreate state
+      // recreate state
       xkb_state_unref(kbd_state);
       xkb_keymap_unref(kbd_keymap);
       kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
