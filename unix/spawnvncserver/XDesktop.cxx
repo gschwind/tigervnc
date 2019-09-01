@@ -311,9 +311,9 @@ XDesktop::XDesktop(char const * displayName)
     xcb_randr_select_input(xcb, default_root, XCB_RANDR_NOTIFY_MASK_SCREEN_CHANGE|XCB_RANDR_NOTIFY_MASK_CRTC_CHANGE);
 
     /* Override TXWindow::init input mask */
-    uint32_t mask = XCB_EVENT_MASK_PROPERTY_CHANGE
-        | XCB_EVENT_MASK_EXPOSURE
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY;
+    uint32_t mask =
+        XCB_EVENT_MASK_EXPOSURE|
+        XCB_EVENT_MASK_STRUCTURE_NOTIFY;
     xcb_change_window_attributes(xcb, default_root, XCB_CW_EVENT_MASK, &mask);
 
   } else {
