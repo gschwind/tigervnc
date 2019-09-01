@@ -184,27 +184,6 @@ XDesktop::XDesktop(char const * displayName)
       all_map_parts, all_map_parts, // for all part
       nullptr);
 
-  // figure out bit masks for the indicators we are interested in
-  for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
-    xcb_generic_error_t * e;
-    auto c0 = xcb_intern_atom(xcb, True, strlen(ledNames[i]), ledNames[i]);
-    auto a = xcb_intern_atom_reply(xcb, c0, &e);
-    if (not a)
-      continue;
-    auto c1 = xcb_xkb_get_named_indicator(xcb, XCB_XKB_ID_USE_CORE_KBD,
-        XCB_XKB_LED_CLASS_DFLT_XI_CLASS, XCB_XKB_ID_DFLT_XI_ID, a->atom);
-    auto r = xcb_xkb_get_named_indicator_reply(xcb, c1, &e);
-    free(a);
-    if (not r)
-      continue;
-
-    ledMasks[i] = 1u << r->ndx;
-    vlog.debug("Mask for '%s' is 0x%x", ledNames[i], ledMasks[i]);
-    if (r->on)
-      ledState |= 1u << i;
-    free(r);
-  }
-
   // X11 unfortunately uses keyboard driver specific keycodes and provides no
   // direct way to query this, so guess based on the keyboard mapping
   xcb_generic_error_t * e;
@@ -266,6 +245,15 @@ XDesktop::XDesktop(char const * displayName)
   kbd_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
   kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
   kbd_state = xkb_x11_state_new_from_device(kbd_keymap, xcb, core_keyboard_id);
+
+  // figure out bit masks for the indicators we are interested in
+  for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
+    auto led_index = xkb_keymap_led_get_index(kbd_keymap, ledNames[i]);
+    ledMasks[i] = 1u << led_index;
+    vlog.debug("Mask for '%s' is 0x%x", ledNames[i], ledMasks[i]);
+    if (xkb_state_led_index_is_active(kbd_state, led_index))
+      ledState |= 1u << i;
+  }
 
 #ifdef HAVE_XTEST
   if (queryExtension("XTEST")) {
