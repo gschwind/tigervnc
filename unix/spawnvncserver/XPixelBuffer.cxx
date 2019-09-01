@@ -86,7 +86,6 @@ XPixelBuffer::~XPixelBuffer()
 void
 XPixelBuffer::grabRegion(const rfb::Region& region)
 {
-  printf("Entering grabRegion\n");
   std::vector<Rect> rects;
   std::vector<Rect>::const_iterator i;
   region.get_rects(&rects);
@@ -99,21 +98,14 @@ XPixelBuffer::grabRegion(const rfb::Region& region)
     // Copy pixels from the screen to the pixel buffer,
     // for the specified rectangular area of the buffer.
     auto const &r = *i;
-    printf("%d %d %d %d\n", r.tl.x, r.tl.y, r.width(), r.height());
     cairo_set_source_surface(cr, m_surf_xcb_root, 0, 0);
     cairo_rectangle(cr, r.tl.x, r.tl.y, r.width(), r.height());
     cairo_fill(cr);
     cairo_status_t status = cairo_status(cr);
     if (status != CAIRO_STATUS_SUCCESS)
       printf("Cairo fail %d : %s\n", __LINE__, cairo_status_to_string(status));
-
-    cairo_set_source_rgb(cr, 0.0, 0.5, 0.0);
-    cairo_rectangle(cr, r.tl.x+0.5, r.tl.y+0.5, r.width()-1, r.height()-1);
-    cairo_stroke(cr);
   }
-
   cairo_destroy(cr);
   cairo_surface_flush(m_surf_frame_bufer);
-  printf("Leaving grabRegion\n");
 }
 
