@@ -184,7 +184,7 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 
   std::list<int> free_display;
 
-  virtual std::shared_ptr<VNCServerSpawn> createVNCScreen(std::string const & userName) override
+  virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) override
   {
     if (free_display.empty())
       throw Exception("No more display available");

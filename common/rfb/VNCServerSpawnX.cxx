@@ -56,7 +56,7 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
-#include <rfb/VNCServerSpawn.h>
+#include <rfb/VNCScreenSpawn.h>
 #include <rfb/VNCSConnectionSpawnX.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
@@ -202,7 +202,7 @@ void VNCServerSpawnXBase::processSocketWriteEvent(network::Socket* sock)
   throw rdr::Exception("invalid Socket in VNCServerSpawnX");
 }
 
-VNCServerSpawn * VNCServerSpawnXBase::get_user_session(std::string const & userName)
+VNCScreenSpawn * VNCServerSpawnXBase::get_user_session(std::string const & userName)
 {
   auto x = user_sessions.find(userName);
   if (x != user_sessions.end()) {

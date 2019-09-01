@@ -21,8 +21,8 @@
 #ifndef __XDESKTOP_H__
 #define __XDESKTOP_H__
 
-#include <rfb/VNCServerSpawn.h>
 #include <unixcommon.h>
+#include <rfb/VNCScreenSpawn.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 
@@ -44,7 +44,7 @@ class XPixelBuffer;
 // number of XKb indicator leds to handle
 #define XDESKTOP_N_LEDS 3
 
-class XDesktop : public rfb::VNCServerSpawn,
+class XDesktop : public rfb::VNCScreenSpawn,
                  public QueryResultCallback
 {
 public:

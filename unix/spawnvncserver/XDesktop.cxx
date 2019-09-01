@@ -119,7 +119,7 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
 }
 
 XDesktop::XDesktop(int n, std::string const & userName)
-  : VNCServerSpawn(userName.c_str()), xcb(0), geometry(0, 0), pb(0), server(0),
+  : VNCScreenSpawn(userName.c_str()), xcb(0), geometry(0, 0), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),

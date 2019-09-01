@@ -35,7 +35,7 @@
 #include <rfb/Timer.h>
 
 namespace rfb {
-  class VNCServerSpawn;
+  class VNCScreenSpawn;
   class VNCServerSpawnXBase;
 
   class VNCSConnectionSpawnX : public SConnection,
@@ -180,7 +180,7 @@ namespace rfb {
 
     VNCServerSpawnXBase* server;
 
-    VNCServerSpawn* internal_server; // manage XDesktop
+    VNCScreenSpawn* internal_server; // manage XDesktop
 
     SimpleUpdateTracker updates;
     Region requested;

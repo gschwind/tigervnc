@@ -56,7 +56,7 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
-#include <rfb/VNCServerSpawn.h>
+#include <rfb/VNCScreenSpawn.h>
 #include <rfb/VNCSConnectionSpawnX.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
@@ -74,7 +74,7 @@ static LogWriter connectionsLog("Connections");
 
 // -=- Constructors/Destructor
 
-VNCServerSpawn::VNCServerSpawn(const char* name_)
+VNCScreenSpawn::VNCScreenSpawn(const char* name_)
   : blHosts(&blacklist), desktopStarted(false),
     blockCounter(0), pb(0), ledState(ledUnknown),
     name(strDup(name_)), pointerClient(0), clipboardClient(0),
@@ -93,7 +93,7 @@ VNCServerSpawn::VNCServerSpawn(const char* name_)
     disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
 }
 
-VNCServerSpawn::~VNCServerSpawn()
+VNCScreenSpawn::~VNCScreenSpawn()
 {
   slog.debug("shutting down server %s", name.buf);
 
@@ -124,35 +124,35 @@ VNCServerSpawn::~VNCServerSpawn()
 
 // SocketServer methods
 
-void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
+void VNCScreenSpawn::addSocket(network::Socket* sock, bool outgoing)
 {
   throw Exception("unexpected");
 }
 
-void VNCServerSpawn::removeSocket(network::Socket* sock) {
+void VNCScreenSpawn::removeSocket(network::Socket* sock) {
   throw Exception("unexpected");
 }
 
-void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
+void VNCScreenSpawn::processSocketReadEvent(network::Socket* sock)
 {
   throw Exception("unexpected");
 }
 
-void VNCServerSpawn::processSocketWriteEvent(network::Socket* sock)
+void VNCScreenSpawn::processSocketWriteEvent(network::Socket* sock)
 {
   throw Exception("unexpected");
 }
 
 // VNCServer methods
 
-void VNCServerSpawn::blockUpdates()
+void VNCScreenSpawn::blockUpdates()
 {
   blockCounter++;
 
   stopFrameClock();
 }
 
-void VNCServerSpawn::unblockUpdates()
+void VNCScreenSpawn::unblockUpdates()
 {
   assert(blockCounter > 0);
 
@@ -165,7 +165,7 @@ void VNCServerSpawn::unblockUpdates()
   }
 }
 
-void VNCServerSpawn::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
+void VNCScreenSpawn::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
 {
   if (comparer)
     comparer->logStats();
@@ -203,7 +203,7 @@ void VNCServerSpawn::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
   }
 }
 
-void VNCServerSpawn::setPixelBuffer(PixelBuffer* pb_)
+void VNCScreenSpawn::setPixelBuffer(PixelBuffer* pb_)
 {
   ScreenSet layout = screenLayout;
 
@@ -234,7 +234,7 @@ void VNCServerSpawn::setPixelBuffer(PixelBuffer* pb_)
   setPixelBuffer(pb_, layout);
 }
 
-void VNCServerSpawn::setScreenLayout(const ScreenSet& layout)
+void VNCScreenSpawn::setScreenLayout(const ScreenSet& layout)
 {
   if (!pb)
     throw Exception("setScreenLayout: new screen layout without a PixelBuffer");
@@ -250,7 +250,7 @@ void VNCServerSpawn::setScreenLayout(const ScreenSet& layout)
   }
 }
 
-void VNCServerSpawn::requestClipboard()
+void VNCScreenSpawn::requestClipboard()
 {
   if (clipboardClient == NULL)
     return;
@@ -258,7 +258,7 @@ void VNCServerSpawn::requestClipboard()
   clipboardClient->requestClipboard();
 }
 
-void VNCServerSpawn::announceClipboard(bool available)
+void VNCScreenSpawn::announceClipboard(bool available)
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
 
@@ -273,7 +273,7 @@ void VNCServerSpawn::announceClipboard(bool available)
   }
 }
 
-void VNCServerSpawn::sendClipboardData(const char* data)
+void VNCScreenSpawn::sendClipboardData(const char* data)
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
 
@@ -289,7 +289,7 @@ void VNCServerSpawn::sendClipboardData(const char* data)
   clipboardRequestors.clear();
 }
 
-void VNCServerSpawn::bell()
+void VNCScreenSpawn::bell()
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
   for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
@@ -298,7 +298,7 @@ void VNCServerSpawn::bell()
   }
 }
 
-void VNCServerSpawn::setName(const char* name_)
+void VNCScreenSpawn::setName(const char* name_)
 {
   name.replaceBuf(strDup(name_));
   std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
@@ -308,7 +308,7 @@ void VNCServerSpawn::setName(const char* name_)
   }
 }
 
-void VNCServerSpawn::add_changed(const Region& region)
+void VNCScreenSpawn::add_changed(const Region& region)
 {
   if (comparer == NULL)
     return;
@@ -317,7 +317,7 @@ void VNCServerSpawn::add_changed(const Region& region)
   startFrameClock();
 }
 
-void VNCServerSpawn::add_copied(const Region& dest, const Point& delta)
+void VNCScreenSpawn::add_copied(const Region& dest, const Point& delta)
 {
   if (comparer == NULL)
     return;
@@ -326,7 +326,7 @@ void VNCServerSpawn::add_copied(const Region& dest, const Point& delta)
   startFrameClock();
 }
 
-void VNCServerSpawn::setCursor(int width, int height, const Point& newHotspot,
+void VNCScreenSpawn::setCursor(int width, int height, const Point& newHotspot,
                             const rdr::U8* data)
 {
   delete cursor;
@@ -343,7 +343,7 @@ void VNCServerSpawn::setCursor(int width, int height, const Point& newHotspot,
   }
 }
 
-void VNCServerSpawn::setCursorPos(const Point& pos)
+void VNCScreenSpawn::setCursorPos(const Point& pos)
 {
   if (!cursorPos.equals(pos)) {
     cursorPos = pos;
@@ -354,7 +354,7 @@ void VNCServerSpawn::setCursorPos(const Point& pos)
   }
 }
 
-void VNCServerSpawn::setLEDState(unsigned int state)
+void VNCScreenSpawn::setLEDState(unsigned int state)
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
 
@@ -371,7 +371,7 @@ void VNCServerSpawn::setLEDState(unsigned int state)
 
 // Event handlers
 
-void VNCServerSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down)
+void VNCScreenSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down)
 {
   if (rfb::Server::maxIdleTime)
     idleTimer.start(secsToMillis(rfb::Server::maxIdleTime));
@@ -389,7 +389,7 @@ void VNCServerSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down)
   SDesktop::keyEvent(keysym, keycode, down);
 }
 
-void VNCServerSpawn::pointerEvent(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::pointerEvent(VNCSConnectionSpawnX* client,
                                const Point& pos, int buttonMask)
 {
   if (rfb::Server::maxIdleTime)
@@ -408,14 +408,14 @@ void VNCServerSpawn::pointerEvent(VNCSConnectionSpawnX* client,
   SDesktop::pointerEvent(pos, buttonMask);
 }
 
-void VNCServerSpawn::handleClipboardRequest(VNCSConnectionSpawnX* client)
+void VNCScreenSpawn::handleClipboardRequest(VNCSConnectionSpawnX* client)
 {
   clipboardRequestors.push_back(client);
   if (clipboardRequestors.size() == 1)
     SDesktop::handleClipboardRequest();
 }
 
-void VNCServerSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
                                           bool available)
 {
   if (available)
@@ -428,7 +428,7 @@ void VNCServerSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
   SDesktop::handleClipboardAnnounce(available);
 }
 
-void VNCServerSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
                                       const char* data)
 {
   if (client != clipboardClient)
@@ -436,7 +436,7 @@ void VNCServerSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
   SDesktop::handleClipboardData(data);
 }
 
-unsigned int VNCServerSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
+unsigned int VNCScreenSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
                                          int fb_width, int fb_height,
                                          const ScreenSet& layout)
 {
@@ -472,12 +472,12 @@ unsigned int VNCServerSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
 // Other public methods
 
 
-void VNCServerSpawn::addClient(VNCSConnectionSpawnX * client)
+void VNCScreenSpawn::addClient(VNCSConnectionSpawnX * client)
 {
   clients.push_back(client);
 }
 
-void VNCServerSpawn::removeClient(VNCSConnectionSpawnX * client)
+void VNCScreenSpawn::removeClient(VNCSConnectionSpawnX * client)
 {
   // - Remove any references to it
   if (pointerClient == client)
@@ -497,7 +497,7 @@ void VNCServerSpawn::removeClient(VNCSConnectionSpawnX * client)
 
 }
 
-void VNCServerSpawn::approveConnection(network::Socket* sock, bool accept,
+void VNCScreenSpawn::approveConnection(network::Socket* sock, bool accept,
                                     const char* reason)
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci;
@@ -509,7 +509,7 @@ void VNCServerSpawn::approveConnection(network::Socket* sock, bool accept,
   }
 }
 
-void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
+void VNCScreenSpawn::closeClients(const char* reason, network::Socket* except)
 {
   std::list<VNCSConnectionSpawnX*>::iterator i, next_i;
   for (i=clients.begin(); i!=clients.end(); i=next_i) {
@@ -519,12 +519,12 @@ void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
   }
 }
 
-void VNCServerSpawn::getSockets(std::list<network::Socket*>* sockets)
+void VNCScreenSpawn::getSockets(std::list<network::Socket*>* sockets)
 {
   throw Exception("unexpected");
 }
 
-SConnection* VNCServerSpawn::getConnection(network::Socket* sock) {
+SConnection* VNCScreenSpawn::getConnection(network::Socket* sock) {
   std::list<VNCSConnectionSpawnX*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock)
@@ -533,7 +533,7 @@ SConnection* VNCServerSpawn::getConnection(network::Socket* sock) {
   return 0;
 }
 
-bool VNCServerSpawn::handleTimeout(Timer* t)
+bool VNCScreenSpawn::handleTimeout(Timer* t)
 {
   if (t == &frameTimer) {
     // We keep running until we go a full interval without any updates
@@ -566,7 +566,7 @@ bool VNCServerSpawn::handleTimeout(Timer* t)
   return false;
 }
 
-void VNCServerSpawn::queryConnection(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::queryConnection(VNCSConnectionSpawnX* client,
                                   const char* userName)
 {
   // - Authentication succeeded - clear from blacklist
@@ -605,7 +605,7 @@ void VNCServerSpawn::queryConnection(VNCSConnectionSpawnX* client,
 //  desktop->queryConnection(client->getSock(), userName);
 }
 
-void VNCServerSpawn::clientReady(VNCSConnectionSpawnX* client, bool shared)
+void VNCScreenSpawn::clientReady(VNCSConnectionSpawnX* client, bool shared)
 {
   if (!shared) {
     if (rfb::Server::disconnectClients &&
@@ -626,7 +626,7 @@ void VNCServerSpawn::clientReady(VNCSConnectionSpawnX* client, bool shared)
 
 // -=- Internal methods
 
-void VNCServerSpawn::startDesktop()
+void VNCScreenSpawn::startDesktop()
 {
   if (!desktopStarted) {
     slog.debug("starting desktop");
@@ -641,7 +641,7 @@ void VNCServerSpawn::startDesktop()
   }
 }
 
-void VNCServerSpawn::stopDesktop()
+void VNCScreenSpawn::stopDesktop()
 {
   if (desktopStarted) {
     slog.debug("stopping desktop");
@@ -651,7 +651,7 @@ void VNCServerSpawn::stopDesktop()
   }
 }
 
-int VNCServerSpawn::authClientCount() {
+int VNCScreenSpawn::authClientCount() {
   int count = 0;
   std::list<VNCSConnectionSpawnX*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
@@ -661,7 +661,7 @@ int VNCServerSpawn::authClientCount() {
   return count;
 }
 
-inline bool VNCServerSpawn::needRenderedCursor()
+inline bool VNCScreenSpawn::needRenderedCursor()
 {
   std::list<VNCSConnectionSpawnX*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++)
@@ -669,7 +669,7 @@ inline bool VNCServerSpawn::needRenderedCursor()
   return false;
 }
 
-void VNCServerSpawn::startFrameClock()
+void VNCScreenSpawn::startFrameClock()
 {
   if (frameTimer.isStarted())
     return;
@@ -684,12 +684,12 @@ void VNCServerSpawn::startFrameClock()
   frameTimer.start(1000/rfb::Server::frameRate/2);
 }
 
-void VNCServerSpawn::stopFrameClock()
+void VNCScreenSpawn::stopFrameClock()
 {
   frameTimer.stop();
 }
 
-int VNCServerSpawn::msToNextUpdate()
+int VNCScreenSpawn::msToNextUpdate()
 {
   // FIXME: If the application is updating slower than frameRate then
   //        we could allow the clients more time here
@@ -707,7 +707,7 @@ int VNCServerSpawn::msToNextUpdate()
 // also checks the state of the (server-side) rendered cursor, if
 // necessary rendering it again with the correct background.
 
-void VNCServerSpawn::writeUpdate()
+void VNCScreenSpawn::writeUpdate()
 {
   UpdateInfo ui;
   Region toCheck;
@@ -752,7 +752,7 @@ void VNCServerSpawn::writeUpdate()
 // checkUpdate() is called by clients to see if it is safe to read from
 // the framebuffer at this time.
 
-Region VNCServerSpawn::getPendingRegion()
+Region VNCScreenSpawn::getPendingRegion()
 {
   UpdateInfo ui;
 
@@ -769,7 +769,7 @@ Region VNCServerSpawn::getPendingRegion()
   return ui.changed.union_(ui.copied);
 }
 
-const RenderedCursor* VNCServerSpawn::getRenderedCursor()
+const RenderedCursor* VNCScreenSpawn::getRenderedCursor()
 {
   if (renderedCursorInvalid) {
     renderedCursor.update(pb, cursor, cursorPos);
@@ -779,7 +779,7 @@ const RenderedCursor* VNCServerSpawn::getRenderedCursor()
   return &renderedCursor;
 }
 
-bool VNCServerSpawn::getComparerState()
+bool VNCScreenSpawn::getComparerState()
 {
   if (rfb::Server::compareFB == 0)
     return false;

@@ -38,7 +38,7 @@
 namespace rfb {
 
   class VNCSConnectionSpawnX;
-  class VNCServerSpawn;
+  class VNCScreenSpawn;
   class ComparingUpdateTracker;
   class ListConnInfo;
   class PixelBuffer;
@@ -82,7 +82,7 @@ namespace rfb {
 
     // VNCServerSpawnX-only methods
 
-    VNCServerSpawn * get_user_session(std::string const & username);
+    VNCScreenSpawn * get_user_session(std::string const & username);
 
     // closeClients() closes all RFB sessions, except the specified one (if
     // any), and logs the specified reason for closure.
@@ -98,7 +98,7 @@ namespace rfb {
 
   protected:
 
-    virtual std::shared_ptr<VNCServerSpawn> createVNCScreen(std::string const & userName) = 0;
+    virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) = 0;
 
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);
@@ -109,7 +109,7 @@ namespace rfb {
     int authClientCount();
 
   protected:
-    std::map<std::string, std::shared_ptr<VNCServerSpawn>> user_sessions;
+    std::map<std::string, std::shared_ptr<VNCScreenSpawn>> user_sessions;
 
     Blacklist blacklist;
     Blacklist* blHosts;

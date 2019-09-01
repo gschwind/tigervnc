@@ -21,8 +21,8 @@
 
 // Single-threaded VNCServer implementation
 
-#ifndef __RFB_VNCSERVERSPAWN_H__
-#define __RFB_VNCSERVERSPAWN_H__
+#ifndef __RFB_VNCSCREENSPAWN_H__
+#define __RFB_VNCSCREENSPAWN_H__
 
 #include <sys/time.h>
 
@@ -46,7 +46,7 @@ namespace rfb {
   // remap stop to XXdesktopStop
   // remap start to XXdesktopStart
   // because of clash with TimerCallback name clash
-  struct VNCServerSpawnDesktop : public SDesktop {
+  struct VNCScreenSpawnDesktop : public SDesktop {
     virtual void XXdesktopStart(VNCServer * vs) = 0;
     virtual void XXdesktopStop() = 0;
 
@@ -55,15 +55,15 @@ namespace rfb {
 
   };
 
-  class VNCServerSpawn : public VNCServer,
-                      public VNCServerSpawnDesktop,
+  class VNCScreenSpawn : public VNCServer,
+                      public VNCScreenSpawnDesktop,
                       public Timer::Callback {
   public:
     // -=- Constructors
 
     //   Create a server exporting the supplied desktop.
-    VNCServerSpawn(const char* name_);
-    virtual ~VNCServerSpawn();
+    VNCScreenSpawn(const char* name_);
+    virtual ~VNCScreenSpawn();
 
 
     // Methods overridden from SocketServer

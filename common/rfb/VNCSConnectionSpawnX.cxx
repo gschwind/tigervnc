@@ -27,7 +27,7 @@
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
 #include <rfb/SMsgWriter.h>
-#include <rfb/VNCServerSpawn.h>
+#include <rfb/VNCScreenSpawn.h>
 #include <rfb/VNCSConnectionSpawnX.h>
 #include <rfb/screenTypes.h>
 #include <rfb/fenceTypes.h>
@@ -491,7 +491,7 @@ void VNCSConnectionSpawnX::pointerEvent(const Point& pos, int buttonMask)
 
 class VNCSConnectionSpawnXShiftPresser {
 public:
-  VNCSConnectionSpawnXShiftPresser(VNCServerSpawn* server_)
+  VNCSConnectionSpawnXShiftPresser(VNCScreenSpawn* server_)
     : server(server_), pressed(false) {}
   ~VNCSConnectionSpawnXShiftPresser() {
     if (pressed) {
@@ -504,7 +504,7 @@ public:
     server->keyEvent(XK_Shift_L, 0, true);
     pressed = true;
   }
-  VNCServerSpawn* server;
+  VNCScreenSpawn* server;
   bool pressed;
 };
 
