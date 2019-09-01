@@ -351,6 +351,7 @@ void XDesktop::processPendingXEvent()
   while((ev = xcb_poll_for_event(xcb))) {
     handleGlobalEvent(ev);
   }
+  xcb_flush(xcb);
 }
 
 void XDesktop::update_default_visual()
