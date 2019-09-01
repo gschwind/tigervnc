@@ -154,42 +154,52 @@ XDesktop::XDesktop(char const * displayName)
     free(r);
   }
 
-  if (not queryExtension("XKEYBOARD", nullptr, &xkbEventBase, nullptr)) {
-    vlog.error("XKEYBOARD extension not present");
-    throw Exception();
-  } else {
-    xcb_generic_error_t * e;
-    auto c = xcb_xkb_use_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
-    auto r = xcb_xkb_use_extension_reply(xcb, c, &e);
-    if (r == nullptr or e != nullptr) {
-      vlog.error("XKEYBOARD extension not present");
-      throw Exception();
-    }
-    free(r);
+  uint8_t tmp;
+  if (not xkb_x11_setup_xkb_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
+      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, &tmp, nullptr)) {
+    vlog.error("XKEYBOARD initialization fail");
+    throw Exception("XKEYBOARD initialization fail");
   }
 
-  uint16_t all_map_parts = XCB_XKB_MAP_PART_KEY_TYPES |
-                        XCB_XKB_MAP_PART_KEY_SYMS |
-                        XCB_XKB_MAP_PART_MODIFIER_MAP |
-                        XCB_XKB_MAP_PART_EXPLICIT_COMPONENTS |
-                        XCB_XKB_MAP_PART_KEY_ACTIONS |
-                        XCB_XKB_MAP_PART_KEY_BEHAVIORS |
-                        XCB_XKB_MAP_PART_VIRTUAL_MODS |
-                        XCB_XKB_MAP_PART_VIRTUAL_MOD_MAP;
+  // basicly select all parts.
+  uint16_t const xkb_map_parts_mask =
+      XCB_XKB_MAP_PART_KEY_TYPES |
+      XCB_XKB_MAP_PART_KEY_SYMS |
+      XCB_XKB_MAP_PART_MODIFIER_MAP |
+      XCB_XKB_MAP_PART_EXPLICIT_COMPONENTS |
+      XCB_XKB_MAP_PART_KEY_ACTIONS |
+      XCB_XKB_MAP_PART_KEY_BEHAVIORS |
+      XCB_XKB_MAP_PART_VIRTUAL_MODS |
+      XCB_XKB_MAP_PART_VIRTUAL_MOD_MAP;
 
-  xcb_xkb_select_events(xcb, XCB_XKB_ID_USE_CORE_KBD,
-      XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
-      0, // do not clear
-      XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY, // select all
-      all_map_parts, all_map_parts, // for all part
-      nullptr);
+  uint16_t const xkb_event_mask =
+      XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY|
+      XCB_XKB_EVENT_TYPE_MAP_NOTIFY|
+      XCB_XKB_EVENT_TYPE_STATE_NOTIFY|
+      XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY;
+
+  xkbEventBase = tmp;
+  core_keyboard_id = xkb_x11_get_core_keyboard_device_id(xcb);
+  xcb_xkb_select_events_aux(xcb, XCB_XKB_ID_USE_CORE_KBD,
+      xkb_event_mask, 0, xkb_event_mask,
+      xkb_map_parts_mask,xkb_map_parts_mask, nullptr);
+
+  kbd_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  kbd_state = xkb_x11_state_new_from_device(kbd_keymap, xcb, core_keyboard_id);
+
+  // figure out bit masks for the indicators we are interested in
+  for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
+    auto led_index = xkb_keymap_led_get_index(kbd_keymap, ledNames[i]);
+    ledMasks[i] = 1u << led_index;
+    vlog.debug("Mask for '%s' is 0x%x", ledNames[i], ledMasks[i]);
+    if (xkb_state_led_index_is_active(kbd_state, led_index))
+      ledState |= 1u << i;
+  }
 
   // X11 unfortunately uses keyboard driver specific keycodes and provides no
   // direct way to query this, so guess based on the keyboard mapping
   xcb_generic_error_t * e;
-//  auto c = xcb_xkb_get_kbd_by_name(xcb, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_GBN_DETAIL_KEY_NAMES, 0, False);
-//  auto r = xcb_xkb_get_kbd_by_name_reply(xcb, c, &e);
-
   auto c = xcb_xkb_get_names(xcb, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_NAME_DETAIL_KEYCODES);
   auto r = xcb_xkb_get_names_reply(xcb, c, &e);
   if (r) {
@@ -223,37 +233,6 @@ XDesktop::XDesktop(char const * displayName)
 
   free(r);
 //  xcb_xkb_select_events_aux();
-
-  uint8_t tmp;
-  if (not xkb_x11_setup_xkb_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
-      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, &tmp, nullptr))
-    vlog.error("xkb FAIL");
-  xkbEventBase = tmp;
-  core_keyboard_id = xkb_x11_get_core_keyboard_device_id(xcb);
-  xcb_xkb_select_events_aux(xcb, XCB_XKB_ID_USE_CORE_KBD,
-       XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY
-      |XCB_XKB_EVENT_TYPE_MAP_NOTIFY
-      |XCB_XKB_EVENT_TYPE_STATE_NOTIFY
-      |XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
-      0,
-      XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY
-     |XCB_XKB_EVENT_TYPE_MAP_NOTIFY
-     |XCB_XKB_EVENT_TYPE_STATE_NOTIFY
-     |XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
-     all_map_parts,all_map_parts, nullptr);
-
-  kbd_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-  kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
-  kbd_state = xkb_x11_state_new_from_device(kbd_keymap, xcb, core_keyboard_id);
-
-  // figure out bit masks for the indicators we are interested in
-  for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
-    auto led_index = xkb_keymap_led_get_index(kbd_keymap, ledNames[i]);
-    ledMasks[i] = 1u << led_index;
-    vlog.debug("Mask for '%s' is 0x%x", ledNames[i], ledMasks[i]);
-    if (xkb_state_led_index_is_active(kbd_state, led_index))
-      ledState |= 1u << i;
-  }
 
 #ifdef HAVE_XTEST
   if (queryExtension("XTEST")) {
