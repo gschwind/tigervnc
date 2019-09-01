@@ -52,14 +52,6 @@ protected:
   int m_offsetLeft;
   int m_offsetTop;
 
-  // Copy pixels from the screen to the pixel buffer,
-  // for the specified rectangular area of the buffer.
-  inline void grabRect(const rfb::Rect &r) {
-    cairo_t * cr = cairo_create(m_surf_frame_bufer);
-    cairo_set_source_surface(cr, m_surf_xcb_root, -m_offsetLeft+r.tl.x, -m_offsetTop +r.tl.y);
-    cairo_rectangle(cr, r.tl.x, r.tl.y, r.width(), r.height());
-    cairo_paint(cr);
-  }
 };
 
 #endif // __XPIXELBUFFER_H__

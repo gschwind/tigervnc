@@ -60,7 +60,7 @@ XPixelBuffer::XPixelBuffer(xcb_connection_t *xcb, xcb_visualtype_t * visual, xcb
 
   data = new rdr::U8[stride*height_*4];
 
-  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, width_, height_, stride);
+  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, width_, height_, stride*4);
   m_surf_xcb_root = cairo_xcb_surface_create(xcb, d, m_visual, width_, height_);
 
 }
@@ -78,8 +78,20 @@ XPixelBuffer::grabRegion(const rfb::Region& region)
   std::vector<Rect> rects;
   std::vector<Rect>::const_iterator i;
   region.get_rects(&rects);
+  cairo_t * cr = cairo_create(m_surf_frame_bufer);
   for (i = rects.begin(); i != rects.end(); i++) {
-    grabRect(*i);
+    // Copy pixels from the screen to the pixel buffer,
+    // for the specified rectangular area of the buffer.
+    auto const &r = *i;
+    printf("%d %d %d %d\n", r.tl.x, r.tl.y, r.width(), r.height());
+    cairo_set_source_surface(cr, m_surf_xcb_root, 0, 0);
+    //cairo_set_source_rgb(cr, 0.0, 0.5, 0.0);
+    cairo_rectangle(cr, r.tl.x, r.tl.y, r.width(), r.height());
+    cairo_fill(cr);
   }
+
+  cairo_destroy(cr);
+  cairo_surface_flush(m_surf_frame_bufer);
+
 }
 
