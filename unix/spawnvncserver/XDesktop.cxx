@@ -566,6 +566,7 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
   vlog.debug("keycode = 0x%x %s", keycode, down ? "down" : "up");
 
   xcb_test_fake_input(xcb, down?XCB_KEY_PRESS:XCB_KEY_RELEASE, keycode, XCB_CURRENT_TIME, XCB_NONE, 0, 0, 0);
+  xcb_flush(xcb); // do not delay inputs.
 #endif
 }
 
