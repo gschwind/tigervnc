@@ -243,6 +243,29 @@ XDesktop::XDesktop(char const * displayName)
   }
 
   free(r);
+//  xcb_xkb_select_events_aux();
+
+  uint8_t tmp;
+  if (not xkb_x11_setup_xkb_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
+      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, &tmp, nullptr))
+    vlog.error("xkb FAIL");
+  xkbEventBase = tmp;
+  core_keyboard_id = xkb_x11_get_core_keyboard_device_id(xcb);
+  xcb_xkb_select_events_aux(xcb, XCB_XKB_ID_USE_CORE_KBD,
+       XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY
+      |XCB_XKB_EVENT_TYPE_MAP_NOTIFY
+      |XCB_XKB_EVENT_TYPE_STATE_NOTIFY
+      |XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
+      0,
+      XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY
+     |XCB_XKB_EVENT_TYPE_MAP_NOTIFY
+     |XCB_XKB_EVENT_TYPE_STATE_NOTIFY
+     |XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY,
+     all_map_parts,all_map_parts, nullptr);
+
+  kbd_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  kbd_state = xkb_x11_state_new_from_device(kbd_keymap, xcb, core_keyboard_id);
 
 #ifdef HAVE_XTEST
   if (queryExtension("XTEST")) {
@@ -517,43 +540,28 @@ void XDesktop::pointerEvent(const Point& pos, int buttonMask) {
 }
 
 #ifdef HAVE_XTEST
-KeyCode XDesktop::XkbKeysymToKeycode(Display* dpy, KeySym keysym) {
-//  XkbDescPtr xkb;
-//  XkbStateRec state;
-//  unsigned int mods;
-//  unsigned keycode;
-//
-//  xkb = XkbGetMap(dpy, XkbAllComponentsMask, XkbUseCoreKbd);
-//  if (!xkb)
-//    return 0;
-//
-//  XkbGetState(dpy, XkbUseCoreKbd, &state);
-//  // XkbStateFieldFromRec() doesn't work properly because
-//  // state.lookup_mods isn't properly updated, so we do this manually
-//  mods = XkbBuildCoreState(XkbStateMods(&state), state.group);
-//
-//  for (keycode = xkb->min_key_code;
-//       keycode <= xkb->max_key_code;
-//       keycode++) {
-//    KeySym cursym;
-//    unsigned int out_mods;
-//    XkbTranslateKeyCode(xkb, keycode, mods, &out_mods, &cursym);
-//    if (cursym == keysym)
-//      break;
-//  }
-//
-//  if (keycode > xkb->max_key_code)
-//    keycode = 0;
-//
-//  XkbFreeKeyboard(xkb, XkbAllComponentsMask, True);
-//
-//  // Shift+Tab is usually ISO_Left_Tab, but RFB hides this fact. Do
-//  // another attempt if we failed the initial lookup
-//  if ((keycode == 0) && (keysym == XK_Tab) && (mods & ShiftMask))
-//    return XkbKeysymToKeycode(dpy, XK_ISO_Left_Tab);
-//
-//  return keycode;
-  return 0;
+
+// translated from XKBstr.h / XKB.h
+#define XCB_XkbModLocks(s)   ((s)->lockedMods)
+#define XCB_XkbStateMods(s)  ((s)->baseMods|(s)->latchedMods|XCB_XkbModLocks(s))
+#define XCB_XkbStateMods(s)  ((s)->baseMods|(s)->latchedMods|XCB_XkbModLocks(s))
+#define XCB_XkbBuildCoreState(m,g)  ((((g)&0x3)<<13)|((m)&0xff))
+
+KeyCode XDesktop::XkbKeysymToKeycode(KeySym keysym) {
+
+  xkb_keycode_t keycode;
+  for (keycode = xkb_keymap_min_keycode(kbd_keymap);
+       keycode <= xkb_keymap_max_keycode(kbd_keymap);
+       keycode++) {
+    auto cursym = xkb_state_key_get_one_sym(kbd_state, keycode);
+    if (cursym == keysym)
+      break;
+  }
+
+  if (keycode > xkb_keymap_max_keycode(kbd_keymap))
+    keycode = 0;
+
+  return keycode;
 }
 #endif
 
@@ -574,7 +582,7 @@ void XDesktop::keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down) {
     else {
       // XKeysymToKeycode() doesn't respect state, so we have to use
       // something slightly more complex
-      keycode = 0;//XkbKeysymToKeycode(dpy, keysym);
+      keycode = XkbKeysymToKeycode(keysym);
     }
   }
 
@@ -911,23 +919,40 @@ unsigned int XDesktop::setScreenLayout(int fb_width, int fb_height,
 
 bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
   if (ev->response_type == xkbEventBase) {
-    if (reinterpret_cast<xcb_xkb_new_keyboard_notify_event_t*>(ev)->xkbType != XCB_XKB_INDICATOR_STATE_NOTIFY)
-      return false;
+    auto xkbType = reinterpret_cast<xcb_xkb_new_keyboard_notify_event_t*>(ev)->xkbType;
 
-    auto const * kb = reinterpret_cast<xcb_xkb_indicator_state_notify_event_t*>(ev);
+    if (xkbType == XCB_XKB_INDICATOR_STATE_NOTIFY) {
+      auto const * kb = reinterpret_cast<xcb_xkb_indicator_state_notify_event_t*>(ev);
 
-    vlog.debug("Got indicator update, mask is now 0x%x", kb->state);
+      vlog.debug("Got indicator update, mask is now 0x%x", kb->state);
 
-    ledState = 0;
-    for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
-      if (kb->state & ledMasks[i])
-        ledState |= 1u << i;
+      ledState = 0;
+      for (int i = 0; i < XDESKTOP_N_LEDS; i++) {
+        if (kb->state & ledMasks[i])
+          ledState |= 1u << i;
+      }
+
+      if (running)
+        server->setLEDState(ledState);
+
+      return true;
+    } else if (xkbType == XCB_XKB_NEW_KEYBOARD_NOTIFY or xkbType == XCB_XKB_MAP_NOTIFY) {
+      // revreate state
+      xkb_state_unref(kbd_state);
+      xkb_keymap_unref(kbd_keymap);
+      kbd_keymap = xkb_x11_keymap_new_from_device(kbd_context, xcb, core_keyboard_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
+      kbd_state = xkb_x11_state_new_from_device(kbd_keymap, xcb, core_keyboard_id);
+      return true;
+    } else if (xkbType == XCB_XKB_STATE_NOTIFY) {
+      auto const * kb = reinterpret_cast<xcb_xkb_state_notify_event_t*>(ev);
+      xkb_state_update_mask(kbd_state,
+          kb->baseMods, kb->latchedMods, kb->lockedMods,
+          kb->baseGroup, kb->latchedGroup, kb->lockedGroup);
+      return true;
     }
 
-    if (running)
-      server->setLEDState(ledState);
+    return false;
 
-    return true;
 #ifdef HAVE_XDAMAGE
   } else if (ev->response_type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
     auto const * dev = reinterpret_cast<xcb_damage_notify_event_t*>(ev);
