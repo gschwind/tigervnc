@@ -950,7 +950,7 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
 
     return false;
 
-  } else if (ev->response_type == ConfigureNotify) {
+  } else if (ev->response_type == XCB_CONFIGURE_NOTIFY) {
     auto const * cev = reinterpret_cast<xcb_configure_notify_event_t*>(ev);
 
     if (cev->window != default_root) {
