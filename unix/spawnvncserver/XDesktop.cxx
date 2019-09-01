@@ -257,7 +257,6 @@ XDesktop::XDesktop(char const * displayName)
 
 #ifdef HAVE_XDAMAGE
   if (queryExtension("DAMAGE", nullptr, &xdamageEventBase, nullptr)) {
-    vlog.info("DAMAGE extension found %d", xdamageEventBase);
     xcb_generic_error_t * e;
     auto c = xcb_damage_query_version(xcb, XCB_DAMAGE_MAJOR_VERSION, XCB_DAMAGE_MINOR_VERSION);
     auto r = xcb_damage_query_version_reply(xcb, c, &e);
