@@ -154,9 +154,8 @@ XDesktop::XDesktop(char const * displayName)
     free(r);
   }
 
-  uint8_t tmp;
   if (not xkb_x11_setup_xkb_extension(xcb, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION,
-      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, &tmp, nullptr)) {
+      XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, &xkbEventBase, nullptr)) {
     vlog.error("XKEYBOARD initialization fail");
     throw Exception("XKEYBOARD initialization fail");
   }
@@ -178,7 +177,6 @@ XDesktop::XDesktop(char const * displayName)
       XCB_XKB_EVENT_TYPE_STATE_NOTIFY|
       XCB_XKB_EVENT_TYPE_INDICATOR_STATE_NOTIFY;
 
-  xkbEventBase = tmp;
   core_keyboard_id = xkb_x11_get_core_keyboard_device_id(xcb);
   xcb_xkb_select_events_aux(xcb, XCB_XKB_ID_USE_CORE_KBD,
       xkb_event_mask, 0, xkb_event_mask,
