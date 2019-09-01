@@ -178,69 +178,16 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 {
   VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) { }
 
-  std::list<std::tuple<int, XDesktop*>> displays;
+  std::list<XDesktop*> displays;
 
   virtual SDesktop * create_sdesktop(std::string const & userName) override
   {
-
     int n = 10 + displays.size();
-
-    passwd * pw = getpwnam(userName.c_str());
-
-    char const * home = pw->pw_dir;
-
-    std::string xauthority = std::string{home}+std::string{"/TESTAUTH"};
-    setenv("XAUTHORITY", xauthority.c_str(), 1);
-
-    int pid = startXserver(n, userName.c_str(), home);
-
-    vlog.info("Starting the X11 display connection");
-
-    char * display_str;
-    asprintf(&display_str, ":%d", n);
-
-    auto desktop = new XDesktop(display_str);
-    displays.push_back(std::make_tuple(pid, desktop));
-    return desktop; // TODO;
+    auto desktop = new XDesktop(n, userName);
+    displays.push_back(desktop);
+    return desktop;
   }
 
-  int startXserver(int n, char const * const userName, char const * const home)
-  {
-    vlog.info("Starting the X11 server connection");
-
-    int pid = fork();
-    if (pid) { // parent
-      vlog.info("PARENT");
-      return pid;
-    } else { //child
-
-      vlog.info("CHILD");
-
-      char * xorg_cmd = nullptr;
-      asprintf(&xorg_cmd, "/usr/bin/env XAUTHORITY=%s/TESTAUTH "
-          "/usr/bin/startx -- :%d -config simple-vnc-xdummy.conf -logfile %s/Xorg.%d.log",
-          home, n, home, n);
-
-      vlog.info("start command %s", xorg_cmd);
-
-      // good news: su --login preserve XAUTHORITY.
-      char * exec_args[] = {
-          strdup("/bin/su"),
-          strdup("--login"),
-          strdup(userName),
-          strdup("--command"),
-          xorg_cmd,
-          0
-      };
-
-      if(execv(exec_args[0], exec_args) < 0)
-        vlog.info("execve failed");
-
-      exit(1); // terminate forked child
-
-      return -1;
-    }
-  }
 
 };
 
@@ -338,14 +285,14 @@ int main(int argc, char** argv)
 
       // Process any incoming X events
       for(auto &x: server.displays) {
-        std::get<1>(x)->processPendingXEvent();
+        x->processPendingXEvent();
       }
 
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
       for (auto &x: server.displays) {
-        FD_SET(std::get<1>(x)->getFd(), &rfds);
+        FD_SET(x->getFd(), &rfds);
       }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
            i != listeners.end();
@@ -426,7 +373,7 @@ int main(int argc, char** argv)
   }
 
   for(auto &x: server.displays) {
-    std::get<1>(x)->processPendingXEvent();
+    x->processPendingXEvent();
   }
 
   // Run listener destructors; remove UNIX sockets etc

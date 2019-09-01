@@ -21,6 +21,9 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <sys/stat.h>
 
 #include <rfb/LogWriter.h>
 
@@ -115,17 +118,30 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
   }
 }
 
-XDesktop::XDesktop(char const * displayName)
+XDesktop::XDesktop(int n, std::string const & userName)
   : xcb(0), geometry(0, 0), pb(0), server(0),
     queryConnectDialog(0), queryConnectSock(0),
     oldButtonMask(0), haveXtest(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
 {
+  passwd * pw = getpwnam(userName.c_str());
+
+  char const * home = pw->pw_dir;
+
+  std::string xauthority = std::string{home}+std::string{"/TESTAUTH"};
+  setenv("XAUTHORITY", xauthority.c_str(), 1);
+
+  pid = startXserver(n, userName.c_str(), home);
+
+  vlog.info("Starting the X11 display connection");
+
+  char * display_str;
+  asprintf(&display_str, ":%d", n);
 
   for(int i = 0; i < 10; ++i) { // 10 atempt.
     sleep(1);
-    xcb = xcb_connect(displayName, &default_screen);
+    xcb = xcb_connect(display_str, &default_screen);
     if (not xcb_connection_has_error(xcb))
       break;
     xcb_disconnect(xcb);
@@ -136,7 +152,7 @@ XDesktop::XDesktop(char const * displayName)
   if (!xcb) {
     // FIXME: Why not vlog.error(...)?
     fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-            "TODO", displayName);
+            "TODO", display_str);
     throw Exception();
   }
 
@@ -1067,3 +1083,44 @@ bool XDesktop::setCursor()
   free(cim);
   return true;
 }
+
+int XDesktop::startXserver(int n, char const * const userName, char const * const home)
+{
+  vlog.info("Starting the X11 server");
+
+  int pid = fork();
+  if (pid) { // parent
+    vlog.info("PARENT");
+    return pid;
+  } else { //child
+
+    vlog.info("CHILD");
+
+    char * xorg_cmd = nullptr;
+    asprintf(&xorg_cmd, "/usr/bin/env XAUTHORITY=%s/TESTAUTH "
+        "/usr/bin/startx -- :%d -config simple-vnc-xdummy.conf -logfile %s/Xorg.%d.log",
+        home, n, home, n);
+
+    vlog.info("start command %s", xorg_cmd);
+
+    // good news: su --login preserve XAUTHORITY.
+    char * exec_args[] = {
+        strdup("/bin/su"),
+        strdup("--login"),
+        strdup(userName),
+        strdup("--command"),
+        xorg_cmd,
+        0
+    };
+
+    if(execv(exec_args[0], exec_args) < 0)
+      vlog.info("execve failed");
+
+    exit(1); // terminate forked child
+
+    return -1;
+  }
+}
+
+
+
