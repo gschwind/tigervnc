@@ -21,8 +21,8 @@
 #ifndef __XDESKTOP_H__
 #define __XDESKTOP_H__
 
-#include <rfb/SDesktop.h>
 #include <unixcommon.h>
+#include <rfb/VNCScreenSpawn.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 

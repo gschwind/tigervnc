@@ -180,7 +180,7 @@ struct VNCServerSpawnXS : public VNCServerSpawnXBase
 
   std::list<XDesktop*> displays;
 
-  virtual SDesktop * create_sdesktop(std::string const & userName) override
+  virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) override
   {
     int n = 10 + displays.size();
     auto desktop = new XDesktop(n, userName);

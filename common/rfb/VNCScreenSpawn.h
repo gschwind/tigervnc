@@ -21,8 +21,8 @@
 
 // Single-threaded VNCServer implementation
 
-#ifndef __RFB_VNCSERVERSPAWN_H__
-#define __RFB_VNCSERVERSPAWN_H__
+#ifndef __RFB_VNCSCREENSPAWN_H__
+#define __RFB_VNCSCREENSPAWN_H__
 
 #include <sys/time.h>
 
@@ -49,7 +49,6 @@ namespace rfb {
     //   Create a server exporting the supplied desktop.
     VNCServerSpawn(const char* name_, SDesktop* desktop_);
     virtual ~VNCServerSpawn();
-
 
     // Methods overridden from SocketServer
 
