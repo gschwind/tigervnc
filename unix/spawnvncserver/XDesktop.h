@@ -117,7 +117,7 @@ protected:
   xcb_damage_damage_t damage;
   int xdamageEventBase;
 #endif
-  int xkbEventBase;
+  uint8_t xkbEventBase;
 #ifdef HAVE_XFIXES
   int xfixesEventBase;
 #endif
