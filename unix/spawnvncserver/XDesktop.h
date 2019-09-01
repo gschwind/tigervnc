@@ -23,6 +23,8 @@
 
 #include <rfb/SDesktop.h>
 #include <unixcommon.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-x11.h>
 
 #include <X11/XKBlib.h>
 #ifdef HAVE_XDAMAGE
@@ -69,7 +71,7 @@ public:
   virtual void queryConnection(network::Socket* sock,
                                const char* userName);
   virtual void pointerEvent(const rfb::Point& pos, int buttonMask);
-  KeyCode XkbKeysymToKeycode(Display* dpy, KeySym keysym);
+  KeyCode XkbKeysymToKeycode(KeySym keysym);
   virtual void keyEvent(rdr::U32 keysym, rdr::U32 xtcode, bool down);
   virtual void clientCutText(const char* str);
   virtual unsigned int setScreenLayout(int fb_width, int fb_height,
@@ -88,6 +90,11 @@ protected:
   xcb_window_t default_root;
 
   xcb_screen_t * screen;
+
+  int32_t core_keyboard_id;
+  xkb_context * kbd_context;
+  xkb_keymap * kbd_keymap;
+  xkb_state * kbd_state;
 
   uint32_t xcb_default_visual_depth;
   xcb_visualtype_t * xcb_default_visual_type;
