@@ -40,9 +40,9 @@ XPixelBuffer::XPixelBuffer(xcb_connection_t *xcb, xcb_visualtype_t * visual, xcb
 
   // Fill in the PixelFormat structure of the parent class.
   format = PixelFormat(
-      m_visual->bits_per_rgb_value,
-      m_visual->bits_per_rgb_value*3,
-      true/*truecolor*/, true/*is bigendian?*/,
+      32, // bits per pixel
+      24, // depth
+      false/*is bigendian?*/, true/*truecolor*/,
       m_visual->red_mask >> (ffs(m_visual->red_mask) - 1),
       m_visual->green_mask >> (ffs(m_visual->green_mask) - 1),
       m_visual->blue_mask >> (ffs(m_visual->blue_mask) - 1),
@@ -56,11 +56,11 @@ XPixelBuffer::XPixelBuffer(xcb_connection_t *xcb, xcb_visualtype_t * visual, xcb
 
   // Calculate the distance in pixels between two subsequent scan
   // lines of the framebuffer. This may differ from image width.
-  stride = width_*3;
+  stride = width_;
 
-  data = new rdr::U8[stride*height_]; //TODO 32 bit.
+  data = new rdr::U8[stride*height_*4];
 
-  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_RGB24, width_, height_, stride);
+  m_surf_frame_bufer = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32, width_, height_, stride);
   m_surf_xcb_root = cairo_xcb_surface_create(xcb, d, m_visual, width_, height_);
 
 }
