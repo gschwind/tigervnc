@@ -920,14 +920,16 @@ bool XDesktop::handleGlobalEvent(xcb_generic_event_t* ev) {
 #ifdef HAVE_XDAMAGE
   } else if (ev->response_type == (xdamageEventBase + XCB_DAMAGE_NOTIFY)) {
     auto const * dev = reinterpret_cast<xcb_damage_notify_event_t*>(ev);
-    Rect rect;
 
     if (!running)
       return true;
 
-    rect.setXYWH(dev->area.x, dev->area.y, dev->area.width, dev->area.height);
-    rect = rect.translate(Point(-geometry.offsetLeft(), -geometry.offsetTop()));
-    server->add_changed(rect);
+    if (dev->damage == damage) { // root window damages
+      Rect rect;
+      rect.setXYWH(dev->area.x, dev->area.y, dev->area.width, dev->area.height);
+      rect = rect.translate(Point(-geometry.offsetLeft(), -geometry.offsetTop()));
+      server->add_changed(rect);
+    }
 
     return true;
 #endif
