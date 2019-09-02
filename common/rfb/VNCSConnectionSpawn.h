@@ -24,8 +24,8 @@
 // members of VNCServerST.
 //
 
-#ifndef __RFB_VNCSCONNECTIONSPAWNX_H__
-#define __RFB_VNCSCONNECTIONSPAWNX_H__
+#ifndef __RFB_VNCSCONNECTIONSPAWN_H__
+#define __RFB_VNCSCONNECTIONSPAWN_H__
 
 #include <map>
 
@@ -38,11 +38,11 @@ namespace rfb {
   class VNCScreenSpawn;
   class VNCServerSpawn;
 
-  class VNCSConnectionSpawnX : public SConnection,
+  class VNCSConnectionSpawn : public SConnection,
                            public Timer::Callback {
   public:
-    VNCSConnectionSpawnX(VNCServerSpawn* server_, network::Socket* s, bool reverse);
-    virtual ~VNCSConnectionSpawnX();
+    VNCSConnectionSpawn(VNCServerSpawn* server_, network::Socket* s, bool reverse);
+    virtual ~VNCSConnectionSpawn();
 
     // SConnection methods
 

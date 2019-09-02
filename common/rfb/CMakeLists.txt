@@ -58,7 +58,7 @@ set(RFB_SOURCES
   TightJPEGEncoder.cxx
   UpdateTracker.cxx
   VNCSConnectionST.cxx
-  VNCSConnectionSpawnX.cxx
+  VNCSConnectionSpawn.cxx
   VNCServerST.cxx
   VNCScreenSpawn.cxx
   VNCServerSpawn.cxx

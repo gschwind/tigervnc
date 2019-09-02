@@ -37,7 +37,7 @@
 
 namespace rfb {
 
-  class VNCSConnectionSpawnX;
+  class VNCSConnectionSpawn;
   class VNCScreenSpawn;
   class ComparingUpdateTracker;
   class ListConnInfo;
@@ -116,7 +116,7 @@ namespace rfb {
 
     CharArray name;
 
-    std::list<VNCSConnectionSpawnX*> clients;
+    std::list<VNCSConnectionSpawn*> clients;
     std::list<network::Socket*> closingSockets;
 
     Timer idleTimer;

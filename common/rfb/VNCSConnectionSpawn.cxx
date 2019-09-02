@@ -29,7 +29,7 @@
 #include <rfb/SMsgWriter.h>
 #include <rfb/VNCScreenSpawn.h>
 #include <rfb/VNCServerSpawn.h>
-#include <rfb/VNCSConnectionSpawnX.h>
+#include <rfb/VNCSConnectionSpawn.h>
 #include <rfb/screenTypes.h>
 #include <rfb/fenceTypes.h>
 #include <rfb/ledStates.h>
@@ -44,7 +44,7 @@ static LogWriter vlog("VNCSConnST");
 
 static Cursor emptyCursor(0, 0, Point(0, 0), NULL);
 
-VNCSConnectionSpawnX::VNCSConnectionSpawnX(VNCServerSpawn* server_, network::Socket *s,
+VNCSConnectionSpawn::VNCSConnectionSpawn(VNCServerSpawn* server_, network::Socket *s,
                                    bool reverse)
   : sock(s), reverseConnection(reverse),
     inProcessMessages(false),
@@ -76,7 +76,7 @@ VNCSConnectionSpawnX::VNCSConnectionSpawnX(VNCServerSpawn* server_, network::Soc
 }
 
 
-VNCSConnectionSpawnX::~VNCSConnectionSpawnX()
+VNCSConnectionSpawn::~VNCSConnectionSpawn()
 {
   // If we reach here then VNCServerSpawn is deleting us!
   if (closeReason.buf)
@@ -101,7 +101,7 @@ VNCSConnectionSpawnX::~VNCSConnectionSpawnX()
 
 // SConnection methods
 
-bool VNCSConnectionSpawnX::accessCheck(AccessRights ar) const
+bool VNCSConnectionSpawn::accessCheck(AccessRights ar) const
 {
   // Reverse connections are user initiated, so they are implicitly
   // allowed to bypass the query
@@ -111,7 +111,7 @@ bool VNCSConnectionSpawnX::accessCheck(AccessRights ar) const
   return SConnection::accessCheck(ar);
 }
 
-void VNCSConnectionSpawnX::close(const char* reason)
+void VNCSConnectionSpawn::close(const char* reason)
 {
   // Log the reason for the close
   if (!closeReason.buf)
@@ -130,7 +130,7 @@ void VNCSConnectionSpawnX::close(const char* reason)
 
 // Methods called from VNCServerSpawn
 
-bool VNCSConnectionSpawnX::init()
+bool VNCSConnectionSpawn::init()
 {
   try {
     initialiseProtocol();
@@ -142,7 +142,7 @@ bool VNCSConnectionSpawnX::init()
 }
 
 
-void VNCSConnectionSpawnX::processMessages()
+void VNCSConnectionSpawn::processMessages()
 {
   if (state() == RFBSTATE_CLOSING) return;
   try {
@@ -194,7 +194,7 @@ void VNCSConnectionSpawnX::processMessages()
   }
 }
 
-void VNCSConnectionSpawnX::flushSocket()
+void VNCSConnectionSpawn::flushSocket()
 {
   if (state() == RFBSTATE_CLOSING) return;
   try {
@@ -209,7 +209,7 @@ void VNCSConnectionSpawnX::flushSocket()
   }
 }
 
-void VNCSConnectionSpawnX::pixelBufferChange()
+void VNCSConnectionSpawn::pixelBufferChange()
 {
   try {
     if (!authenticated()) return;
@@ -258,7 +258,7 @@ void VNCSConnectionSpawnX::pixelBufferChange()
   }
 }
 
-void VNCSConnectionSpawnX::writeFramebufferUpdateOrClose()
+void VNCSConnectionSpawn::writeFramebufferUpdateOrClose()
 {
   try {
     writeFramebufferUpdate();
@@ -267,7 +267,7 @@ void VNCSConnectionSpawnX::writeFramebufferUpdateOrClose()
   }
 }
 
-void VNCSConnectionSpawnX::screenLayoutChangeOrClose(rdr::U16 reason)
+void VNCSConnectionSpawn::screenLayoutChangeOrClose(rdr::U16 reason)
 {
   try {
     screenLayoutChange(reason);
@@ -277,7 +277,7 @@ void VNCSConnectionSpawnX::screenLayoutChangeOrClose(rdr::U16 reason)
   }
 }
 
-void VNCSConnectionSpawnX::bellOrClose()
+void VNCSConnectionSpawn::bellOrClose()
 {
   try {
     if (state() == RFBSTATE_NORMAL) writer()->writeBell();
@@ -286,7 +286,7 @@ void VNCSConnectionSpawnX::bellOrClose()
   }
 }
 
-void VNCSConnectionSpawnX::setDesktopNameOrClose(const char *name)
+void VNCSConnectionSpawn::setDesktopNameOrClose(const char *name)
 {
   try {
     setDesktopName(name);
@@ -296,7 +296,7 @@ void VNCSConnectionSpawnX::setDesktopNameOrClose(const char *name)
   }
 }
 
-void VNCSConnectionSpawnX::setCursorOrClose()
+void VNCSConnectionSpawn::setCursorOrClose()
 {
   try {
     setCursor();
@@ -306,7 +306,7 @@ void VNCSConnectionSpawnX::setCursorOrClose()
   }
 }
 
-void VNCSConnectionSpawnX::setLEDStateOrClose(unsigned int state)
+void VNCSConnectionSpawn::setLEDStateOrClose(unsigned int state)
 {
   try {
     setLEDState(state);
@@ -316,7 +316,7 @@ void VNCSConnectionSpawnX::setLEDStateOrClose(unsigned int state)
   }
 }
 
-void VNCSConnectionSpawnX::requestClipboardOrClose()
+void VNCSConnectionSpawn::requestClipboardOrClose()
 {
   try {
     if (!accessCheck(AccessCutText)) return;
@@ -328,7 +328,7 @@ void VNCSConnectionSpawnX::requestClipboardOrClose()
   }
 }
 
-void VNCSConnectionSpawnX::announceClipboardOrClose(bool available)
+void VNCSConnectionSpawn::announceClipboardOrClose(bool available)
 {
   try {
     if (!accessCheck(AccessCutText)) return;
@@ -340,7 +340,7 @@ void VNCSConnectionSpawnX::announceClipboardOrClose(bool available)
   }
 }
 
-void VNCSConnectionSpawnX::sendClipboardDataOrClose(const char* data)
+void VNCSConnectionSpawn::sendClipboardDataOrClose(const char* data)
 {
   try {
     if (!accessCheck(AccessCutText)) return;
@@ -352,7 +352,7 @@ void VNCSConnectionSpawnX::sendClipboardDataOrClose(const char* data)
   }
 }
 
-bool VNCSConnectionSpawnX::getComparerState()
+bool VNCSConnectionSpawn::getComparerState()
 {
   // We interpret a low compression level as an indication that the client
   // wants to prioritise CPU usage over bandwidth, and hence disable the
@@ -365,7 +365,7 @@ bool VNCSConnectionSpawnX::getComparerState()
 // changes shape or position.  It ensures that the next update will clean up
 // the old rendered cursor and if necessary draw the new rendered cursor.
 
-void VNCSConnectionSpawnX::renderedCursorChange()
+void VNCSConnectionSpawn::renderedCursorChange()
 {
   if (state() != RFBSTATE_NORMAL) return;
   // Are we switching between client-side and server-side cursor?
@@ -390,7 +390,7 @@ void VNCSConnectionSpawnX::renderedCursorChange()
 // second).  [ Ideally we should do finer-grained timing here and make the time
 // configurable, but I don't think it's that important. ]
 
-bool VNCSConnectionSpawnX::needRenderedCursor()
+bool VNCSConnectionSpawn::needRenderedCursor()
 {
   if (state() != RFBSTATE_NORMAL)
     return false;
@@ -405,7 +405,7 @@ bool VNCSConnectionSpawnX::needRenderedCursor()
 }
 
 
-void VNCSConnectionSpawnX::approveConnectionOrClose(bool accept,
+void VNCSConnectionSpawn::approveConnectionOrClose(bool accept,
                                                 const char* reason)
 {
   try {
@@ -419,7 +419,7 @@ void VNCSConnectionSpawnX::approveConnectionOrClose(bool accept,
 
 // -=- Callbacks from SConnection
 
-void VNCSConnectionSpawnX::authSuccess()
+void VNCSConnectionSpawn::authSuccess()
 {
   if (rfb::Server::idleTimeout)
     idleTimer.start(secsToMillis(rfb::Server::idleTimeout));
@@ -441,7 +441,7 @@ void VNCSConnectionSpawnX::authSuccess()
   updates.add_changed(internal_server->getPixelBuffer()->getRect());
 }
 
-void VNCSConnectionSpawnX::authFailure(const char* reason)
+void VNCSConnectionSpawn::authFailure(const char* reason)
 {
   // Introduce a slight delay of the authentication failure response
   // to make it difficult to brute force a password
@@ -450,14 +450,14 @@ void VNCSConnectionSpawnX::authFailure(const char* reason)
 }
 
 // Called just after user authentification.
-void VNCSConnectionSpawnX::queryConnection(const char* userName)
+void VNCSConnectionSpawn::queryConnection(const char* userName)
 {
   internal_server = server->get_user_session(userName);
   internal_server->addClient(this);
   internal_server->queryConnection(this, userName);
 }
 
-void VNCSConnectionSpawnX::clientInit(bool shared)
+void VNCSConnectionSpawn::clientInit(bool shared)
 {
   if (rfb::Server::idleTimeout)
     idleTimer.start(secsToMillis(rfb::Server::idleTimeout));
@@ -468,7 +468,7 @@ void VNCSConnectionSpawnX::clientInit(bool shared)
   internal_server->clientReady(this, shared);
 }
 
-void VNCSConnectionSpawnX::setPixelFormat(const PixelFormat& pf)
+void VNCSConnectionSpawn::setPixelFormat(const PixelFormat& pf)
 {
   SConnection::setPixelFormat(pf);
   char buffer[256];
@@ -477,7 +477,7 @@ void VNCSConnectionSpawnX::setPixelFormat(const PixelFormat& pf)
   setCursor();
 }
 
-void VNCSConnectionSpawnX::pointerEvent(const Point& pos, int buttonMask)
+void VNCSConnectionSpawn::pointerEvent(const Point& pos, int buttonMask)
 {
   if (rfb::Server::idleTimeout)
     idleTimer.start(secsToMillis(rfb::Server::idleTimeout));
@@ -510,7 +510,7 @@ public:
 
 // keyEvent() - record in the pressedKeys which keys were pressed.  Allow
 // multiple down events (for autorepeat), but only allow a single up event.
-void VNCSConnectionSpawnX::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down) {
+void VNCSConnectionSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down) {
   rdr::U32 lookup;
 
   if (rfb::Server::idleTimeout)
@@ -623,7 +623,7 @@ void VNCSConnectionSpawnX::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down
   internal_server->keyEvent(keysym, keycode, down);
 }
 
-void VNCSConnectionSpawnX::framebufferUpdateRequest(const Rect& r,bool incremental)
+void VNCSConnectionSpawn::framebufferUpdateRequest(const Rect& r,bool incremental)
 {
   Rect safeRect;
 
@@ -663,7 +663,7 @@ void VNCSConnectionSpawnX::framebufferUpdateRequest(const Rect& r,bool increment
   }
 }
 
-void VNCSConnectionSpawnX::setDesktopSize(int fb_width, int fb_height,
+void VNCSConnectionSpawn::setDesktopSize(int fb_width, int fb_height,
                                       const ScreenSet& layout)
 {
   unsigned int result;
@@ -675,7 +675,7 @@ void VNCSConnectionSpawnX::setDesktopSize(int fb_width, int fb_height,
   writer()->writeDesktopSize(reasonClient, result);
 }
 
-void VNCSConnectionSpawnX::fence(rdr::U32 flags, unsigned len, const char data[])
+void VNCSConnectionSpawn::fence(rdr::U32 flags, unsigned len, const char data[])
 {
   rdr::U8 type;
 
@@ -719,7 +719,7 @@ void VNCSConnectionSpawnX::fence(rdr::U32 flags, unsigned len, const char data[]
   }
 }
 
-void VNCSConnectionSpawnX::enableContinuousUpdates(bool enable,
+void VNCSConnectionSpawn::enableContinuousUpdates(bool enable,
                                                int x, int y, int w, int h)
 {
   Rect rect;
@@ -739,20 +739,20 @@ void VNCSConnectionSpawnX::enableContinuousUpdates(bool enable,
   }
 }
 
-void VNCSConnectionSpawnX::handleClipboardRequest()
+void VNCSConnectionSpawn::handleClipboardRequest()
 {
   if (!accessCheck(AccessCutText)) return;
   internal_server->handleClipboardRequest(this);
 }
 
-void VNCSConnectionSpawnX::handleClipboardAnnounce(bool available)
+void VNCSConnectionSpawn::handleClipboardAnnounce(bool available)
 {
   if (!accessCheck(AccessCutText)) return;
   if (!rfb::Server::acceptCutText) return;
   internal_server->handleClipboardAnnounce(this, available);
 }
 
-void VNCSConnectionSpawnX::handleClipboardData(const char* data)
+void VNCSConnectionSpawn::handleClipboardData(const char* data)
 {
   if (!accessCheck(AccessCutText)) return;
   if (!rfb::Server::acceptCutText) return;
@@ -764,7 +764,7 @@ void VNCSConnectionSpawnX::handleClipboardData(const char* data)
 // cursor, we make sure that the old server-side rendered cursor is cleaned up
 // and the cursor is sent to the client.
 
-void VNCSConnectionSpawnX::supportsLocalCursor()
+void VNCSConnectionSpawn::supportsLocalCursor()
 {
   bool hasRenderedCursor = !damagedCursorRegion.is_empty();
   if (hasRenderedCursor && !needRenderedCursor())
@@ -772,13 +772,13 @@ void VNCSConnectionSpawnX::supportsLocalCursor()
   setCursor();
 }
 
-void VNCSConnectionSpawnX::supportsFence()
+void VNCSConnectionSpawn::supportsFence()
 {
   char type = 0;
   writer()->writeFence(fenceFlagRequest, sizeof(type), &type);
 }
 
-void VNCSConnectionSpawnX::supportsContinuousUpdates()
+void VNCSConnectionSpawn::supportsContinuousUpdates()
 {
   // We refuse to use continuous updates if we cannot monitor the buffer
   // usage using fences.
@@ -788,7 +788,7 @@ void VNCSConnectionSpawnX::supportsContinuousUpdates()
   writer()->writeEndOfContinuousUpdates();
 }
 
-void VNCSConnectionSpawnX::supportsLEDState()
+void VNCSConnectionSpawn::supportsLEDState()
 {
   if (client.ledState() == ledUnknown)
     return;
@@ -796,7 +796,7 @@ void VNCSConnectionSpawnX::supportsLEDState()
   writer()->writeLEDState();
 }
 
-bool VNCSConnectionSpawnX::handleTimeout(Timer* t)
+bool VNCSConnectionSpawn::handleTimeout(Timer* t)
 {
   try {
     if ((t == &congestionTimer) ||
@@ -814,7 +814,7 @@ bool VNCSConnectionSpawnX::handleTimeout(Timer* t)
   return false;
 }
 
-bool VNCSConnectionSpawnX::isShiftPressed()
+bool VNCSConnectionSpawn::isShiftPressed()
 {
     std::map<rdr::U32, rdr::U32>::const_iterator iter;
 
@@ -828,7 +828,7 @@ bool VNCSConnectionSpawnX::isShiftPressed()
   return false;
 }
 
-void VNCSConnectionSpawnX::writeRTTPing()
+void VNCSConnectionSpawn::writeRTTPing()
 {
   char type;
 
@@ -847,7 +847,7 @@ void VNCSConnectionSpawnX::writeRTTPing()
   congestion.sentPing();
 }
 
-bool VNCSConnectionSpawnX::isCongested()
+bool VNCSConnectionSpawn::isCongested()
 {
   int eta;
 
@@ -874,7 +874,7 @@ bool VNCSConnectionSpawnX::isCongested()
 }
 
 
-void VNCSConnectionSpawnX::writeFramebufferUpdate()
+void VNCSConnectionSpawn::writeFramebufferUpdate()
 {
   congestion.updatePosition(sock->outStream().length());
 
@@ -918,7 +918,7 @@ void VNCSConnectionSpawnX::writeFramebufferUpdate()
   congestion.updatePosition(sock->outStream().length());
 }
 
-void VNCSConnectionSpawnX::writeNoDataUpdate()
+void VNCSConnectionSpawn::writeNoDataUpdate()
 {
   if (!writer()->needNoDataUpdate())
     return;
@@ -929,7 +929,7 @@ void VNCSConnectionSpawnX::writeNoDataUpdate()
   requested.clear();
 }
 
-void VNCSConnectionSpawnX::writeDataUpdate()
+void VNCSConnectionSpawn::writeDataUpdate()
 {
   Region req;
   UpdateInfo ui;
@@ -1041,7 +1041,7 @@ void VNCSConnectionSpawnX::writeDataUpdate()
   requested.clear();
 }
 
-void VNCSConnectionSpawnX::writeLosslessRefresh()
+void VNCSConnectionSpawn::writeLosslessRefresh()
 {
   Region req, pending;
   const RenderedCursor *cursor;
@@ -1116,7 +1116,7 @@ void VNCSConnectionSpawnX::writeLosslessRefresh()
 }
 
 
-void VNCSConnectionSpawnX::screenLayoutChange(rdr::U16 reason)
+void VNCSConnectionSpawn::screenLayoutChange(rdr::U16 reason)
 {
   if (!authenticated())
     return;
@@ -1135,7 +1135,7 @@ void VNCSConnectionSpawnX::screenLayoutChange(rdr::U16 reason)
 // If the client supports local cursor then it will arrange for the cursor to
 // be sent to the client.
 
-void VNCSConnectionSpawnX::setCursor()
+void VNCSConnectionSpawn::setCursor()
 {
   if (state() != RFBSTATE_NORMAL)
     return;
@@ -1153,7 +1153,7 @@ void VNCSConnectionSpawnX::setCursor()
     writer()->writeCursor();
 }
 
-void VNCSConnectionSpawnX::setDesktopName(const char *name)
+void VNCSConnectionSpawn::setDesktopName(const char *name)
 {
   client.setName(name);
 
@@ -1164,7 +1164,7 @@ void VNCSConnectionSpawnX::setDesktopName(const char *name)
     writer()->writeSetDesktopName();
 }
 
-void VNCSConnectionSpawnX::setLEDState(unsigned int ledstate)
+void VNCSConnectionSpawn::setLEDState(unsigned int ledstate)
 {
   if (state() != RFBSTATE_NORMAL)
     return;
@@ -1175,7 +1175,7 @@ void VNCSConnectionSpawnX::setLEDState(unsigned int ledstate)
     writer()->writeLEDState();
 }
 
-void VNCSConnectionSpawnX::setSocketTimeouts()
+void VNCSConnectionSpawn::setSocketTimeouts()
 {
   int timeoutms = rfb::Server::clientWaitTimeMillis;
   if (timeoutms == 0)
@@ -1184,7 +1184,7 @@ void VNCSConnectionSpawnX::setSocketTimeouts()
   sock->outStream().setTimeout(timeoutms);
 }
 
-void VNCSConnectionSpawnX::unregister()
+void VNCSConnectionSpawn::unregister()
 {
   internal_server->removeClient(this);
 }
