@@ -57,12 +57,12 @@
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
 #include <rfb/VNCScreenSpawn.h>
+#include <rfb/VNCServerSpawn.h>
 #include <rfb/VNCSConnectionSpawnX.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
 
 #include <rdr/types.h>
-#include <rfb/VNCServerSpawnX.h>
 
 using namespace rfb;
 
@@ -75,7 +75,7 @@ static LogWriter connectionsLog("Connections");
 
 // -=- Constructors/Destructor
 
-VNCServerSpawnXBase::VNCServerSpawnXBase(const char* name_)
+VNCServerSpawn::VNCServerSpawn(const char* name_)
   : blHosts(&blacklist), name(strDup(name_)),
     idleTimer(this), disconnectTimer(this), connectTimer(this)
 {
@@ -88,7 +88,7 @@ VNCServerSpawnXBase::VNCServerSpawnXBase(const char* name_)
     disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
 }
 
-VNCServerSpawnXBase::~VNCServerSpawnXBase()
+VNCServerSpawn::~VNCServerSpawn()
 {
   slog.debug("shutting down server %s", name.buf);
 
@@ -110,7 +110,7 @@ VNCServerSpawnXBase::~VNCServerSpawnXBase()
 
 // SocketServer methods
 
-void VNCServerSpawnXBase::addSocket(network::Socket* sock, bool outgoing)
+void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
 {
   // - Check the connection isn't black-marked
   // *** do this in getSecurity instead?
@@ -146,7 +146,7 @@ void VNCServerSpawnXBase::addSocket(network::Socket* sock, bool outgoing)
   client->init();
 }
 
-void VNCServerSpawnXBase::removeSocket(network::Socket* sock) {
+void VNCServerSpawn::removeSocket(network::Socket* sock) {
   // - If the socket has resources allocated to it, delete them
   std::list<VNCSConnectionSpawnX*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
@@ -176,7 +176,7 @@ void VNCServerSpawnXBase::removeSocket(network::Socket* sock) {
   closingSockets.remove(sock);
 }
 
-void VNCServerSpawnXBase::processSocketReadEvent(network::Socket* sock)
+void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
 {
   // - Find the appropriate VNCSConnectionSpawnX and process the event
   std::list<VNCSConnectionSpawnX*>::iterator ci;
@@ -189,7 +189,7 @@ void VNCServerSpawnXBase::processSocketReadEvent(network::Socket* sock)
   throw rdr::Exception("invalid Socket in VNCServerSpawnX");
 }
 
-void VNCServerSpawnXBase::processSocketWriteEvent(network::Socket* sock)
+void VNCServerSpawn::processSocketWriteEvent(network::Socket* sock)
 {
   // - Find the appropriate VNCSConnectionSpawnX and process the event
   std::list<VNCSConnectionSpawnX*>::iterator ci;
@@ -202,7 +202,7 @@ void VNCServerSpawnXBase::processSocketWriteEvent(network::Socket* sock)
   throw rdr::Exception("invalid Socket in VNCServerSpawnX");
 }
 
-VNCScreenSpawn * VNCServerSpawnXBase::get_user_session(std::string const & userName)
+VNCScreenSpawn * VNCServerSpawn::get_user_session(std::string const & userName)
 {
   auto x = user_sessions.find(userName);
   if (x != user_sessions.end()) {
@@ -219,7 +219,7 @@ VNCScreenSpawn * VNCServerSpawnXBase::get_user_session(std::string const & userN
 
 // Other public methods
 
-void VNCServerSpawnXBase::closeClients(const char* reason, network::Socket* except)
+void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
 {
   std::list<VNCSConnectionSpawnX*>::iterator i, next_i;
   for (i=clients.begin(); i!=clients.end(); i=next_i) {
@@ -229,7 +229,7 @@ void VNCServerSpawnXBase::closeClients(const char* reason, network::Socket* exce
   }
 }
 
-void VNCServerSpawnXBase::getSockets(std::list<network::Socket*>* sockets)
+void VNCServerSpawn::getSockets(std::list<network::Socket*>* sockets)
 {
   sockets->clear();
   std::list<VNCSConnectionSpawnX*>::iterator ci;
@@ -243,13 +243,13 @@ void VNCServerSpawnXBase::getSockets(std::list<network::Socket*>* sockets)
 }
 
 // -=- Internal methods
-bool VNCServerSpawnXBase::handleTimeout(Timer* t)
+bool VNCServerSpawn::handleTimeout(Timer* t)
 {
   //TODO
   return false;
 }
 
-int VNCServerSpawnXBase::authClientCount() {
+int VNCServerSpawn::authClientCount() {
   int count = 0;
   std::list<VNCSConnectionSpawnX*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
