@@ -28,11 +28,11 @@
 #include <rfb/ServerCore.h>
 #include <rfb/SMsgWriter.h>
 #include <rfb/VNCScreenSpawn.h>
+#include <rfb/VNCServerSpawn.h>
 #include <rfb/VNCSConnectionSpawnX.h>
 #include <rfb/screenTypes.h>
 #include <rfb/fenceTypes.h>
 #include <rfb/ledStates.h>
-#include <rfb/VNCServerSpawnX.h>
 #define XK_LATIN1
 #define XK_MISCELLANY
 #define XK_XKB_KEYS
@@ -44,7 +44,7 @@ static LogWriter vlog("VNCSConnST");
 
 static Cursor emptyCursor(0, 0, Point(0, 0), NULL);
 
-VNCSConnectionSpawnX::VNCSConnectionSpawnX(VNCServerSpawnXBase* server_, network::Socket *s,
+VNCSConnectionSpawnX::VNCSConnectionSpawnX(VNCServerSpawn* server_, network::Socket *s,
                                    bool reverse)
   : sock(s), reverseConnection(reverse),
     inProcessMessages(false),

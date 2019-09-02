@@ -21,8 +21,8 @@
 
 // Single-threaded VNCServer implementation
 
-#ifndef __RFB_VNCSERVERSPAWNX_H__
-#define __RFB_VNCSERVERSPAWNX_H__
+#ifndef __RFB_VNCSERVERSPAWN_H__
+#define __RFB_VNCSERVERSPAWN_H__
 
 #include <sys/time.h>
 
@@ -44,14 +44,14 @@ namespace rfb {
   class PixelBuffer;
   class KeyRemapper;
 
-  class VNCServerSpawnXBase : public network::SocketServer,
+  class VNCServerSpawn : public network::SocketServer,
                           public Timer::Callback {
   public:
     // -=- Constructors
 
     //   Create a server exporting the supplied desktop.
-    VNCServerSpawnXBase(const char* name_);
-    virtual ~VNCServerSpawnXBase();
+    VNCServerSpawn(const char* name_);
+    virtual ~VNCServerSpawn();
 
 
     // Methods overridden from SocketServer

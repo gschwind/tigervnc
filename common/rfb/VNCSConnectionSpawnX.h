@@ -36,12 +36,12 @@
 
 namespace rfb {
   class VNCScreenSpawn;
-  class VNCServerSpawnXBase;
+  class VNCServerSpawn;
 
   class VNCSConnectionSpawnX : public SConnection,
                            public Timer::Callback {
   public:
-    VNCSConnectionSpawnX(VNCServerSpawnXBase* server_, network::Socket* s, bool reverse);
+    VNCSConnectionSpawnX(VNCServerSpawn* server_, network::Socket* s, bool reverse);
     virtual ~VNCSConnectionSpawnX();
 
     // SConnection methods
@@ -178,7 +178,7 @@ namespace rfb {
     Timer congestionTimer;
     Timer losslessTimer;
 
-    VNCServerSpawnXBase* server;
+    VNCServerSpawn* server;
 
     VNCScreenSpawn* internal_server; // manage XDesktop
 

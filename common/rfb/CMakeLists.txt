@@ -61,7 +61,7 @@ set(RFB_SOURCES
   VNCSConnectionSpawnX.cxx
   VNCServerST.cxx
   VNCScreenSpawn.cxx
-  VNCServerSpawnX.cxx
+  VNCServerSpawn.cxx
   ZRLEEncoder.cxx
   ZRLEDecoder.cxx
   encodings.cxx

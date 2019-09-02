@@ -28,9 +28,9 @@
 #include <errno.h>
 #include <rfb/Logger_stdio.h>
 #include <rfb/LogWriter.h>
-#include <rfb/VNCServerSpawnX.h>
 #include <rfb/Configuration.h>
 #include <rfb/Timer.h>
+#include <rfb/VNCServerSpawn.h>
 #include <network/TcpSocket.h>
 #include <network/UnixSocket.h>
 
@@ -174,9 +174,9 @@ private:
 
 };
 
-struct VNCServerSpawnXS : public VNCServerSpawnXBase
+struct VNCServerSpawnXS : public VNCServerSpawn
 {
-  VNCServerSpawnXS(const char* name_) : VNCServerSpawnXBase(name_) {
+  VNCServerSpawnXS(const char* name_) : VNCServerSpawn(name_) {
     for(int i = 10; i < 20; ++i) {
       free_display.push_back(i);
     }
