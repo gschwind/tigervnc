@@ -125,14 +125,6 @@ namespace rfb {
 
   };
 
-  template<typename SDesktopType>
-  class VNCServerSpawnX : public VNCServerSpawnXBase
-  {
-    virtual SDesktop * create_sdesktop() override {
-      return new SDesktopType();
-    }
-  };
-
 };
 
 #endif
