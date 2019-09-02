@@ -58,7 +58,7 @@
 #include <rfb/ServerCore.h>
 #include <rfb/VNCScreenSpawn.h>
 #include <rfb/VNCServerSpawn.h>
-#include <rfb/VNCSConnectionSpawnX.h>
+#include <rfb/VNCSConnectionSpawn.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
 
@@ -99,7 +99,7 @@ VNCServerSpawn::~VNCServerSpawn()
 
   // Delete all the clients, and their sockets, and any closing sockets
   while (!clients.empty()) {
-    VNCSConnectionSpawnX* client;
+    VNCSConnectionSpawn* client;
     client = clients.front();
     clients.pop_front();
     delete client;
@@ -141,14 +141,14 @@ void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
     connectTimer.start(secsToMillis(rfb::Server::maxConnectionTime));
   disconnectTimer.stop();
 
-  VNCSConnectionSpawnX* client = new VNCSConnectionSpawnX(this, sock, outgoing);
+  VNCSConnectionSpawn* client = new VNCSConnectionSpawn(this, sock, outgoing);
   clients.push_front(client);
   client->init();
 }
 
 void VNCServerSpawn::removeSocket(network::Socket* sock) {
   // - If the socket has resources allocated to it, delete them
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock) {
 
@@ -179,7 +179,7 @@ void VNCServerSpawn::removeSocket(network::Socket* sock) {
 void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
 {
   // - Find the appropriate VNCSConnectionSpawnX and process the event
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock) {
       (*ci)->processMessages();
@@ -192,7 +192,7 @@ void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
 void VNCServerSpawn::processSocketWriteEvent(network::Socket* sock)
 {
   // - Find the appropriate VNCSConnectionSpawnX and process the event
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock) {
       (*ci)->flushSocket();
@@ -222,7 +222,7 @@ VNCScreenSpawn * VNCServerSpawn::get_user_session(std::string const & userName)
 
 void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator i, next_i;
+  std::list<VNCSConnectionSpawn*>::iterator i, next_i;
   for (i=clients.begin(); i!=clients.end(); i=next_i) {
     next_i = i; next_i++;
     if ((*i)->getSock() != except)
@@ -233,7 +233,7 @@ void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
 void VNCServerSpawn::getSockets(std::list<network::Socket*>* sockets)
 {
   sockets->clear();
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     sockets->push_back((*ci)->getSock());
   }
@@ -252,7 +252,7 @@ bool VNCServerSpawn::handleTimeout(Timer* t)
 
 int VNCServerSpawn::authClientCount() {
   int count = 0;
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->authenticated())
       count++;

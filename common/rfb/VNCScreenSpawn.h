@@ -35,7 +35,7 @@
 
 namespace rfb {
 
-  class VNCSConnectionSpawnX;
+  class VNCSConnectionSpawn;
   class ComparingUpdateTracker;
   class ListConnInfo;
   class PixelBuffer;
@@ -122,8 +122,8 @@ namespace rfb {
 
     // VNCServerSpawn-only methods
 
-    void addClient(VNCSConnectionSpawnX * client);
-    void removeClient(VNCSConnectionSpawnX * client);
+    void addClient(VNCSConnectionSpawn * client);
+    void removeClient(VNCSConnectionSpawn * client);
 
     // Methods to get the currently set server state
 
@@ -135,13 +135,13 @@ namespace rfb {
 
     // Event handlers
     void keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down);
-    void pointerEvent(VNCSConnectionSpawnX* client, const Point& pos, int buttonMask);
+    void pointerEvent(VNCSConnectionSpawn* client, const Point& pos, int buttonMask);
 
-    void handleClipboardRequest(VNCSConnectionSpawnX* client);
-    void handleClipboardAnnounce(VNCSConnectionSpawnX* client, bool available);
-    void handleClipboardData(VNCSConnectionSpawnX* client, const char* data);
+    void handleClipboardRequest(VNCSConnectionSpawn* client);
+    void handleClipboardAnnounce(VNCSConnectionSpawn* client, bool available);
+    void handleClipboardData(VNCSConnectionSpawn* client, const char* data);
 
-    unsigned int setDesktopSize(VNCSConnectionSpawnX* requester,
+    unsigned int setDesktopSize(VNCSConnectionSpawn* requester,
                                 int fb_width, int fb_height,
                                 const ScreenSet& layout);
 
@@ -151,12 +151,12 @@ namespace rfb {
 
     // queryConnection() does some basic checks and then passes on the
     // request to the desktop.
-    void queryConnection(VNCSConnectionSpawnX* client, const char* userName);
+    void queryConnection(VNCSConnectionSpawn* client, const char* userName);
 
     // clientReady() is called by a VNCSConnectionSpawnX instance when the
     // client has completed the handshake and is ready for normal
     // communication.
-    void clientReady(VNCSConnectionSpawnX* client, bool shared);
+    void clientReady(VNCSConnectionSpawn* client, bool shared);
 
     // Estimated time until the next time new updates will be pushed
     // to clients
@@ -203,10 +203,10 @@ namespace rfb {
 
     CharArray name;
 
-    std::list<VNCSConnectionSpawnX*> clients;
-    VNCSConnectionSpawnX* pointerClient;
-    VNCSConnectionSpawnX* clipboardClient;
-    std::list<VNCSConnectionSpawnX*> clipboardRequestors;
+    std::list<VNCSConnectionSpawn*> clients;
+    VNCSConnectionSpawn* pointerClient;
+    VNCSConnectionSpawn* clipboardClient;
+    std::list<VNCSConnectionSpawn*> clipboardRequestors;
 
     ComparingUpdateTracker* comparer;
 

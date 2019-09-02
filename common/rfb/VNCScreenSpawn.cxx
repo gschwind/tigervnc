@@ -57,7 +57,7 @@
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
 #include <rfb/VNCScreenSpawn.h>
-#include <rfb/VNCSConnectionSpawnX.h>
+#include <rfb/VNCSConnectionSpawn.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
 
@@ -105,7 +105,7 @@ VNCScreenSpawn::~VNCScreenSpawn()
 
   // Delete all the clients, and their sockets, and any closing sockets
   while (!clients.empty()) {
-    VNCSConnectionSpawnX* client;
+    VNCSConnectionSpawn* client;
     client = clients.front();
     clients.pop_front();
     delete client;
@@ -194,7 +194,7 @@ void VNCScreenSpawn::setPixelBuffer(PixelBuffer* pb_, const ScreenSet& layout)
   renderedCursorInvalid = true;
   add_changed(pb->getRect());
 
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->pixelBufferChange();
@@ -243,7 +243,7 @@ void VNCScreenSpawn::setScreenLayout(const ScreenSet& layout)
 
   screenLayout = layout;
 
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->screenLayoutChangeOrClose(reasonServer);
@@ -260,7 +260,7 @@ void VNCScreenSpawn::requestClipboard()
 
 void VNCScreenSpawn::announceClipboard(bool available)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   if (available)
     clipboardClient = NULL;
@@ -275,7 +275,7 @@ void VNCScreenSpawn::announceClipboard(bool available)
 
 void VNCScreenSpawn::sendClipboardData(const char* data)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   if (strchr(data, '\r') != NULL)
     throw Exception("Invalid carriage return in clipboard data");
@@ -291,7 +291,7 @@ void VNCScreenSpawn::sendClipboardData(const char* data)
 
 void VNCScreenSpawn::bell()
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->bellOrClose();
@@ -301,7 +301,7 @@ void VNCScreenSpawn::bell()
 void VNCScreenSpawn::setName(const char* name_)
 {
   name.replaceBuf(strDup(name_));
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->setDesktopNameOrClose(name_);
@@ -335,7 +335,7 @@ void VNCScreenSpawn::setCursor(int width, int height, const Point& newHotspot,
 
   renderedCursorInvalid = true;
 
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
     ci_next = ci; ci_next++;
     (*ci)->renderedCursorChange();
@@ -348,7 +348,7 @@ void VNCScreenSpawn::setCursorPos(const Point& pos)
   if (!cursorPos.equals(pos)) {
     cursorPos = pos;
     renderedCursorInvalid = true;
-    std::list<VNCSConnectionSpawnX*>::iterator ci;
+    std::list<VNCSConnectionSpawn*>::iterator ci;
     for (ci = clients.begin(); ci != clients.end(); ci++)
       (*ci)->renderedCursorChange();
   }
@@ -356,7 +356,7 @@ void VNCScreenSpawn::setCursorPos(const Point& pos)
 
 void VNCScreenSpawn::setLEDState(unsigned int state)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   if (state == ledState)
     return;
@@ -389,7 +389,7 @@ void VNCScreenSpawn::keyEvent(rdr::U32 keysym, rdr::U32 keycode, bool down)
   SDesktop::keyEvent(keysym, keycode, down);
 }
 
-void VNCScreenSpawn::pointerEvent(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::pointerEvent(VNCSConnectionSpawn* client,
                                const Point& pos, int buttonMask)
 {
   if (rfb::Server::maxIdleTime)
@@ -408,14 +408,14 @@ void VNCScreenSpawn::pointerEvent(VNCSConnectionSpawnX* client,
   SDesktop::pointerEvent(pos, buttonMask);
 }
 
-void VNCScreenSpawn::handleClipboardRequest(VNCSConnectionSpawnX* client)
+void VNCScreenSpawn::handleClipboardRequest(VNCSConnectionSpawn* client)
 {
   clipboardRequestors.push_back(client);
   if (clipboardRequestors.size() == 1)
     SDesktop::handleClipboardRequest();
 }
 
-void VNCScreenSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::handleClipboardAnnounce(VNCSConnectionSpawn* client,
                                           bool available)
 {
   if (available)
@@ -428,7 +428,7 @@ void VNCScreenSpawn::handleClipboardAnnounce(VNCSConnectionSpawnX* client,
   SDesktop::handleClipboardAnnounce(available);
 }
 
-void VNCScreenSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::handleClipboardData(VNCSConnectionSpawn* client,
                                       const char* data)
 {
   if (client != clipboardClient)
@@ -436,12 +436,12 @@ void VNCScreenSpawn::handleClipboardData(VNCSConnectionSpawnX* client,
   SDesktop::handleClipboardData(data);
 }
 
-unsigned int VNCScreenSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
+unsigned int VNCScreenSpawn::setDesktopSize(VNCSConnectionSpawn* requester,
                                          int fb_width, int fb_height,
                                          const ScreenSet& layout)
 {
   unsigned int result;
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   // Don't bother the desktop with an invalid configuration
   if (!layout.validate(fb_width, fb_height))
@@ -472,12 +472,12 @@ unsigned int VNCScreenSpawn::setDesktopSize(VNCSConnectionSpawnX* requester,
 // Other public methods
 
 
-void VNCScreenSpawn::addClient(VNCSConnectionSpawnX * client)
+void VNCScreenSpawn::addClient(VNCSConnectionSpawn * client)
 {
   clients.push_back(client);
 }
 
-void VNCScreenSpawn::removeClient(VNCSConnectionSpawnX * client)
+void VNCScreenSpawn::removeClient(VNCSConnectionSpawn * client)
 {
   // - Remove any references to it
   if (pointerClient == client)
@@ -500,7 +500,7 @@ void VNCScreenSpawn::removeClient(VNCSConnectionSpawnX * client)
 void VNCScreenSpawn::approveConnection(network::Socket* sock, bool accept,
                                     const char* reason)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock) {
       (*ci)->approveConnectionOrClose(accept, reason);
@@ -511,7 +511,7 @@ void VNCScreenSpawn::approveConnection(network::Socket* sock, bool accept,
 
 void VNCScreenSpawn::closeClients(const char* reason, network::Socket* except)
 {
-  std::list<VNCSConnectionSpawnX*>::iterator i, next_i;
+  std::list<VNCSConnectionSpawn*>::iterator i, next_i;
   for (i=clients.begin(); i!=clients.end(); i=next_i) {
     next_i = i; next_i++;
     if ((*i)->getSock() != except)
@@ -525,7 +525,7 @@ void VNCScreenSpawn::getSockets(std::list<network::Socket*>* sockets)
 }
 
 SConnection* VNCScreenSpawn::getConnection(network::Socket* sock) {
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->getSock() == sock)
       return *ci;
@@ -566,7 +566,7 @@ bool VNCScreenSpawn::handleTimeout(Timer* t)
   return false;
 }
 
-void VNCScreenSpawn::queryConnection(VNCSConnectionSpawnX* client,
+void VNCScreenSpawn::queryConnection(VNCSConnectionSpawn* client,
                                   const char* userName)
 {
   // - Authentication succeeded - clear from blacklist
@@ -605,7 +605,7 @@ void VNCScreenSpawn::queryConnection(VNCSConnectionSpawnX* client,
 //  desktop->queryConnection(client->getSock(), userName);
 }
 
-void VNCScreenSpawn::clientReady(VNCSConnectionSpawnX* client, bool shared)
+void VNCScreenSpawn::clientReady(VNCSConnectionSpawn* client, bool shared)
 {
   if (!shared) {
     if (rfb::Server::disconnectClients &&
@@ -653,7 +653,7 @@ void VNCScreenSpawn::stopDesktop()
 
 int VNCScreenSpawn::authClientCount() {
   int count = 0;
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++) {
     if ((*ci)->authenticated())
       count++;
@@ -663,7 +663,7 @@ int VNCScreenSpawn::authClientCount() {
 
 inline bool VNCScreenSpawn::needRenderedCursor()
 {
-  std::list<VNCSConnectionSpawnX*>::iterator ci;
+  std::list<VNCSConnectionSpawn*>::iterator ci;
   for (ci = clients.begin(); ci != clients.end(); ci++)
     if ((*ci)->needRenderedCursor()) return true;
   return false;
@@ -712,7 +712,7 @@ void VNCScreenSpawn::writeUpdate()
   UpdateInfo ui;
   Region toCheck;
 
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
 
   assert(blockCounter == 0);
   assert(desktopStarted);
@@ -786,7 +786,7 @@ bool VNCScreenSpawn::getComparerState()
   if (rfb::Server::compareFB != 2)
     return true;
 
-  std::list<VNCSConnectionSpawnX*>::iterator ci, ci_next;
+  std::list<VNCSConnectionSpawn*>::iterator ci, ci_next;
   for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
     ci_next = ci; ci_next++;
     if ((*ci)->getComparerState())
