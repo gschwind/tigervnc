@@ -27,9 +27,6 @@
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
 #include <rfb/SMsgWriter.h>
-#include <rfb/VNCScreenSpawn.h>
-#include <rfb/VNCServerSpawn.h>
-#include <rfb/VNCSConnectionSpawn.h>
 #include <rfb/screenTypes.h>
 #include <rfb/fenceTypes.h>
 #include <rfb/ledStates.h>
@@ -37,6 +34,10 @@
 #define XK_MISCELLANY
 #define XK_XKB_KEYS
 #include <rfb/keysymdef.h>
+
+#include <spawnvncserver/VNCScreenSpawn.h>
+#include <spawnvncserver/VNCServerSpawn.h>
+#include <spawnvncserver/VNCSConnectionSpawn.h>
 
 using namespace rfb;
 
@@ -46,8 +47,7 @@ static Cursor emptyCursor(0, 0, Point(0, 0), NULL);
 
 VNCSConnectionSpawn::VNCSConnectionSpawn(VNCServerSpawn* server_, network::Socket *s,
                                    bool reverse)
-  : VNCSConnectionST(nullptr, s, reverse),
-    meta_server(server_)
+  : VNCSConnectionST(nullptr, s, reverse)
 {
   setStreams(&sock->inStream(), &sock->outStream());
   peerEndpoint.buf = sock->getPeerEndpoint();
@@ -89,12 +89,14 @@ VNCSConnectionSpawn::~VNCSConnectionSpawn()
 //  delete [] fenceData;
 }
 
-// Called just after user authentification.
+
+void VNCSConnectionSpawn::updateServer(VNCServerST * new_server)
+{
+  server = new_server;
+}
+
 void VNCSConnectionSpawn::queryConnection(const char* userName)
 {
-  server = meta_server->get_user_session(userName);
-//  server->addClient(this);
-//  server->queryConnection(this, userName);
-
+  dynamic_cast<VNCServerSpawn*>(server)->queryConnection(this, userName);
 }
 

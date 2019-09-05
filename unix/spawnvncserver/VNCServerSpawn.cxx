@@ -56,13 +56,15 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Security.h>
 #include <rfb/ServerCore.h>
-#include <rfb/VNCScreenSpawn.h>
-#include <rfb/VNCServerSpawn.h>
-#include <rfb/VNCSConnectionSpawn.h>
 #include <rfb/util.h>
 #include <rfb/ledStates.h>
 
 #include <rdr/types.h>
+
+#include <spawnvncserver/VNCScreenSpawn.h>
+#include <spawnvncserver/VNCServerSpawn.h>
+#include <spawnvncserver/VNCSConnectionSpawn.h>
+#include <spawnvncserver/XDesktop.h>
 
 using namespace rfb;
 
@@ -76,7 +78,7 @@ static LogWriter connectionsLog("Connections");
 // -=- Constructors/Destructor
 
 VNCServerSpawn::VNCServerSpawn(const char* name_)
-  : blHosts(&blacklist), name(strDup(name_)),
+  : VNCServerST(name_, nullptr), blHosts(&blacklist), name(strDup(name_)),
     idleTimer(this), disconnectTimer(this), connectTimer(this)
 {
   slog.debug("creating single-threaded server %s", name.buf);
@@ -141,6 +143,7 @@ void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
     connectTimer.start(secsToMillis(rfb::Server::maxConnectionTime));
   disconnectTimer.stop();
 
+  // at begining client connection tal with us.
   VNCSConnectionSpawn* client = new VNCSConnectionSpawn(this, sock, outgoing);
   clients.push_front(client);
   client->init();
@@ -153,7 +156,7 @@ void VNCServerSpawn::removeSocket(network::Socket* sock) {
     if ((*ci)->getSock() == sock) {
 
       // remove the client from the internal server.
-      (*ci)->unregister();
+//      (*ci)->unregister();
 
       // Adjust the exit timers
       connectTimer.stop();
@@ -186,6 +189,11 @@ void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
       return;
     }
   }
+
+  for(auto &x: user_sessions) {
+    x.second->processSocketReadEvent(sock);
+  }
+
   throw rdr::Exception("invalid Socket in VNCServerSpawnX");
 }
 
@@ -199,6 +207,11 @@ void VNCServerSpawn::processSocketWriteEvent(network::Socket* sock)
       return;
     }
   }
+
+  for(auto &x: user_sessions) {
+    x.second->processSocketWriteEvent(sock);
+  }
+
   throw rdr::Exception("invalid Socket in VNCServerSpawnX");
 }
 
@@ -208,10 +221,50 @@ VNCScreenSpawn * VNCServerSpawn::get_user_session(std::string const & userName)
   if (x != user_sessions.end()) {
     return x->second.get();
   } else {
-    auto session = std::make_shared<VNCServerSpawn>("DummyServerName", create_sdesktop(userName));
+    auto desktop = new XDesktop(user_sessions.size()+1, userName);
+    auto session = std::make_shared<VNCScreenSpawn>("DummyServerName", desktop);
     user_sessions[userName] = session;
     return session.get();
   }
+}
+
+void VNCServerSpawn::queryConnection(VNCSConnectionSpawn* client,
+                                  const char* userName)
+{
+  // - Authentication succeeded - clear from blacklist
+  CharArray name;
+  name.buf = client->getSock()->getPeerAddress();
+  blHosts->clearBlackmark(name.buf);
+
+  // - Prepare the desktop for that the client will start requiring
+  // resources after this
+  startDesktop();
+
+  // - Special case to provide a more useful error message
+  if (rfb::Server::neverShared &&
+      !rfb::Server::disconnectClients &&
+      authClientCount() > 0) {
+    approveConnection(client->getSock(), false,
+                      "The server is already in use");
+    return;
+  }
+
+  // - Are we configured to do queries?
+  if (!rfb::Server::queryConnect &&
+      !client->getSock()->requiresQuery()) {
+    approveConnection(client->getSock(), true, NULL);
+    return;
+  }
+
+  // - Does the client have the right to bypass the query?
+  if (client->accessCheck(SConnection::AccessNoQuery))
+  {
+    approveConnection(client->getSock(), true, NULL);
+    return;
+  }
+
+  client->updateServer(get_user_session(userName));
+
 }
 
 
@@ -247,6 +300,20 @@ bool VNCServerSpawn::handleTimeout(Timer* t)
 {
   //TODO
   return false;
+}
+
+void VNCServerSpawn::processXEvents()
+{
+  for(auto &x: user_sessions) {
+    x.second->processXEvents();
+  }
+}
+
+void VNCServerSpawn::getScreenSocket(std::list<int> & sockets)
+{
+  for(auto &x: user_sessions) {
+    sockets.push_back(x.second->getScreenSocket());
+  }
 }
 
 int VNCServerSpawn::authClientCount() {

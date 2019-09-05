@@ -30,7 +30,6 @@
 #include <rfb/LogWriter.h>
 #include <rfb/Configuration.h>
 #include <rfb/Timer.h>
-#include <rfb/VNCServerSpawn.h>
 #include <network/TcpSocket.h>
 #include <network/UnixSocket.h>
 
@@ -39,6 +38,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
+#include <spawnvncserver/VNCServerSpawn.h>
 #include <spawnvncserver/XDesktop.h>
 #include <spawnvncserver/Geometry.h>
 
@@ -174,26 +174,26 @@ private:
 
 };
 
-struct VNCServerSpawnXS : public VNCServerSpawn
-{
-  VNCServerSpawnXS(const char* name_) : VNCServerSpawn(name_) {
-    for(int i = 10; i < 20; ++i) {
-      free_display.push_back(i);
-    }
-  }
-
-  std::list<XDesktop*> displays;
-
-  virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) override
-  {
-    int n = 10 + displays.size();
-    auto desktop = new XDesktop(n, userName);
-    displays.push_back(desktop);
-    return desktop;
-  }
-
-
-};
+//struct VNCServerSpawnXS : public VNCServerSpawn
+//{
+//  VNCServerSpawnXS(const char* name_) : VNCServerSpawn(name_) {
+//    for(int i = 10; i < 20; ++i) {
+//      free_display.push_back(i);
+//    }
+//  }
+//
+//  std::list<XDesktop*> displays;
+//
+//  virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) override
+//  {
+//    int n = 10 + displays.size();
+//    auto desktop = new XDesktop(n, userName);
+//    displays.push_back(desktop);
+//    return desktop;
+//  }
+//
+//
+//};
 
 char* programName;
 
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
   signal(SIGTERM, CleanupSignalHandler);
 
   std::list<SocketListener*> listeners;
-  VNCServerSpawnXS server("spawnvncserver");
+  VNCServerSpawn server("spawnvncserver");
 
   try {
 
@@ -288,15 +288,17 @@ int main(int argc, char** argv)
       std::list<Socket*>::iterator i;
 
       // Process any incoming X events
-      for(auto &x: server.displays) {
-        x->processPendingXEvent();
-      }
+      server.processXEvents();
 
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
-      for (auto &x: server.displays) {
-        FD_SET(x->getFd(), &rfds);
+      {
+        std::list<int> screen_sockets;
+        server.getScreenSocket(screen_sockets);
+        for (auto x: screen_sockets) {
+          FD_SET(x, &rfds);
+        }
       }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
            i != listeners.end();
@@ -376,9 +378,7 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  for(auto &x: server.displays) {
-    x->processPendingXEvent();
-  }
+  server.processXEvents();
 
   // Run listener destructors; remove UNIX sockets etc
   for (std::list<SocketListener*>::iterator i = listeners.begin();

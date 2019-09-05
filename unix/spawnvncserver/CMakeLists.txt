@@ -13,6 +13,9 @@ add_executable(spawnvncserver
   spawnvncserver.cxx
   XPixelBuffer.cxx
   XDesktop.cxx
+  VNCSConnectionSpawn.cxx
+  VNCScreenSpawn.cxx
+  VNCServerSpawn.cxx
   RandrGlue.c
   ../vncconfig/QueryConnectDialog.cxx
 )

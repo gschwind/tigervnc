@@ -58,10 +58,7 @@ set(RFB_SOURCES
   TightJPEGEncoder.cxx
   UpdateTracker.cxx
   VNCSConnectionST.cxx
-  VNCSConnectionSpawn.cxx
   VNCServerST.cxx
-  VNCScreenSpawn.cxx
-  VNCServerSpawn.cxx
   ZRLEEncoder.cxx
   ZRLEDecoder.cxx
   encodings.cxx

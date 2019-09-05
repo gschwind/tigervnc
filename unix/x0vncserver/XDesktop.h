@@ -71,7 +71,7 @@ protected:
   Display* dpy;
   Geometry* geometry;
   XPixelBuffer* pb;
-  rfb::VNCServer* server __attribute__((deprecated));
+  rfb::VNCServer* server;
   QueryConnectDialog* queryConnectDialog;
   network::Socket* queryConnectSock;
   int oldButtonMask;

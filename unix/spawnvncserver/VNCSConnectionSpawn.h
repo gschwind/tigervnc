@@ -31,12 +31,17 @@
 
 namespace rfb {
 
+  class VNCServerSpawn;
+
   class VNCSConnectionSpawn : public VNCSConnectionST {
   public:
     VNCSConnectionSpawn(VNCServerSpawn* server_, network::Socket* s, bool reverse);
     virtual ~VNCSConnectionSpawn();
 
-    VNCServerSpawn* meta_server;
+    // swith from the global meta server to actual screen server.
+    void updateServer(VNCServerST * new_server);
+
+    virtual void queryConnection(const char* userName) override;
 
   };
 }

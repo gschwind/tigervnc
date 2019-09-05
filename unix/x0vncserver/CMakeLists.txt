@@ -20,31 +20,11 @@ add_executable(x0vncserver
   ../vncconfig/QueryConnectDialog.cxx
 )
 
-add_executable(spawnx0vncserver
-  buildtime.c
-  Geometry.cxx
-  Image.cxx
-  PollingManager.cxx
-  PollingScheduler.cxx
-  TimeMillis.cxx
-  qnum_to_xorgevdev.c
-  qnum_to_xorgkbd.c
-  spawnx0vncserver.cxx
-  XPixelBuffer.cxx
-  SpawnDesktop.cxx
-  RandrGlue.c
-  VNCServerSpawn.cxx
-  VNCSConnectionSpawn.cxx
-  ../vncconfig/QueryConnectDialog.cxx
-)
-
 target_link_libraries(x0vncserver tx rfb network rdr unixcommon)
-target_link_libraries(spawnx0vncserver tx rfb network rdr unixcommon)
 
 if(X11_FOUND AND X11_XTest_LIB)
   add_definitions(-DHAVE_XTEST)
   target_link_libraries(x0vncserver ${X11_XTest_LIB})
-  target_link_libraries(spawnx0vncserver ${X11_XTest_LIB})
 else()
   message(WARNING "No XTest extension.  x0vncserver will be view-only.")
 endif()
@@ -52,7 +32,6 @@ endif()
 if(X11_FOUND AND X11_Xdamage_LIB)
   add_definitions(-DHAVE_XDAMAGE)
   target_link_libraries(x0vncserver ${X11_Xdamage_LIB})
-  target_link_libraries(spawnx0vncserver ${X11_Xdamage_LIB})
 else()
   message(WARNING "No DAMAGE extension.  x0vncserver will have to use the slower polling method.")
 endif()
@@ -60,7 +39,6 @@ endif()
 if(X11_FOUND AND X11_Xfixes_LIB)
   add_definitions(-DHAVE_XFIXES)
   target_link_libraries(x0vncserver ${X11_Xfixes_LIB})
-  target_link_libraries(spawnx0vncserver ${X11_Xfixes_LIB})
 else()
   message(WARNING "No XFIXES extension.  x0vncserver will not be able to show cursors.")
 endif()
@@ -68,7 +46,6 @@ endif()
 if(X11_FOUND AND X11_Xrandr_LIB)
   add_definitions(-DHAVE_XRANDR)
   target_link_libraries(x0vncserver ${X11_Xrandr_LIB})
-  target_link_libraries(spawnx0vncserver ${X11_Xrandr_LIB})
 else()
   message(WARNING "No Xrandr extension.  x0vncserver will not be able to resize session.")
 endif()
@@ -76,5 +53,4 @@ endif()
 target_link_libraries(x0vncserver ${X11_LIBRARIES})
 
 install(TARGETS x0vncserver DESTINATION ${BIN_DIR})
-install(TARGETS spawnx0vncserver DESTINATION ${BIN_DIR})
 install(FILES x0vncserver.man DESTINATION ${MAN_DIR}/man1 RENAME x0vncserver.1)

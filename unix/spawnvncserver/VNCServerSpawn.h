@@ -33,6 +33,9 @@
 #include <rfb/Timer.h>
 #include <rfb/ScreenSet.h>
 
+#include <rfb/VNCServerST.h>
+#include <spawnvncserver/VNCSConnectionSpawn.h>
+
 #include <memory>
 
 namespace rfb {
@@ -44,8 +47,7 @@ namespace rfb {
   class PixelBuffer;
   class KeyRemapper;
 
-  class VNCServerSpawn : public network::SocketServer,
-                          public Timer::Callback {
+  class VNCServerSpawn : public VNCServerST {
   public:
     // -=- Constructors
 
@@ -59,30 +61,33 @@ namespace rfb {
     // addSocket
     //   Causes the server to allocate an RFB-protocol management
     //   structure for the socket & initialise it.
-    virtual void addSocket(network::Socket* sock, bool outgoing=false);
+    virtual void addSocket(network::Socket* sock, bool outgoing=false) override;
 
     // removeSocket
     //   Clean up any resources associated with the Socket
-    virtual void removeSocket(network::Socket* sock);
+    virtual void removeSocket(network::Socket* sock) override;
 
     // getSockets() gets a list of sockets.  This can be used to generate an
     // fd_set for calling select().
-    virtual void getSockets(std::list<network::Socket*>* sockets);
+    virtual void getSockets(std::list<network::Socket*>* sockets) override;
 
     // processSocketReadEvent
     //   Read more RFB data from the Socket.  If an error occurs during
     //   processing then shutdown() is called on the Socket, causing
     //   removeSocket() to be called by the caller at a later time.
-    virtual void processSocketReadEvent(network::Socket* sock);
+    virtual void processSocketReadEvent(network::Socket* sock) override;
 
     // processSocketWriteEvent
     //   Flush pending data from the Socket on to the network.
-    virtual void processSocketWriteEvent(network::Socket* sock);
+    virtual void processSocketWriteEvent(network::Socket* sock) override;
 
 
     // VNCServerSpawnX-only methods
 
     VNCScreenSpawn * get_user_session(std::string const & username);
+
+    void queryConnection(VNCSConnectionSpawn* client,
+                                      const char* userName);
 
     // closeClients() closes all RFB sessions, except the specified one (if
     // any), and logs the specified reason for closure.
@@ -96,9 +101,13 @@ namespace rfb {
     // side rendered cursor buffer
     const RenderedCursor* getRenderedCursor();
 
+    void processXEvents();
+
+    void getScreenSocket(std::list<int> & sockets);
+
   protected:
 
-    virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) = 0;
+//    virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) = 0;
 
     // Timer callbacks
     virtual bool handleTimeout(Timer* t);
@@ -107,6 +116,7 @@ namespace rfb {
 
     // - Check how many of the clients are authenticated.
     int authClientCount();
+
 
   protected:
     std::map<std::string, std::shared_ptr<VNCScreenSpawn>> user_sessions;

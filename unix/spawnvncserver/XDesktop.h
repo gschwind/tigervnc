@@ -22,7 +22,6 @@
 #define __XDESKTOP_H__
 
 #include <unixcommon.h>
-#include <rfb/VNCScreenSpawn.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 
@@ -34,8 +33,7 @@
 
 #include <X11/Xlib-xcb.h>
 
-#include <vncconfig/QueryConnectDialog.h>
-
+#include <spawnvncserver/VNCScreenSpawn.h>
 #include <spawnvncserver/Geometry.h>
 
 class Geometry;
@@ -44,8 +42,7 @@ class XPixelBuffer;
 // number of XKb indicator leds to handle
 #define XDESKTOP_N_LEDS 3
 
-class XDesktop : public rfb::SDesktop,
-                 public QueryResultCallback
+class XDesktop : public rfb::SDesktop
 {
 public:
   XDesktop(int n, std::string const & userName);
@@ -109,7 +106,6 @@ protected:
   Geometry geometry;
   XPixelBuffer* pb;
   rfb::VNCServer* server;
-  QueryConnectDialog* queryConnectDialog;
   network::Socket* queryConnectSock;
   int oldButtonMask;
   bool haveXtest;

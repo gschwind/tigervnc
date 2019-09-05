@@ -120,7 +120,7 @@ bool XDesktop::queryExtension(char const * name, int * opcode, int * event, int 
 
 XDesktop::XDesktop(int n, std::string const & userName)
   : xcb(0), geometry(0, 0), pb(0), server(0),
-    queryConnectDialog(0), queryConnectSock(0),
+    queryConnectSock(0),
     oldButtonMask(0), haveXtest(false),
     maxButtons(0), running(false), ledMasks(), ledState(0),
     codeMap(0), codeMapLen(0)
@@ -455,9 +455,6 @@ void XDesktop::stop() {
     vlog.debug("destroy damage %d", damage);
   }
 #endif
-
-  delete queryConnectDialog;
-  queryConnectDialog = 0;
 
   server->setPixelBuffer(0);
   server = 0;

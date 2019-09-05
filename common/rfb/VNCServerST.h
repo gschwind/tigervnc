@@ -176,7 +176,7 @@ namespace rfb {
     Blacklist blacklist;
     Blacklist* blHosts;
 
-    SDesktop* desktop __attribute__((deprecated));
+    SDesktop* desktop;
     bool desktopStarted;
     int blockCounter;
     PixelBuffer* pb;
