@@ -174,27 +174,6 @@ private:
 
 };
 
-//struct VNCServerSpawnXS : public VNCServerSpawn
-//{
-//  VNCServerSpawnXS(const char* name_) : VNCServerSpawn(name_) {
-//    for(int i = 10; i < 20; ++i) {
-//      free_display.push_back(i);
-//    }
-//  }
-//
-//  std::list<XDesktop*> displays;
-//
-//  virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) override
-//  {
-//    int n = 10 + displays.size();
-//    auto desktop = new XDesktop(n, userName);
-//    displays.push_back(desktop);
-//    return desktop;
-//  }
-//
-//
-//};
-
 char* programName;
 
 static void printVersion(FILE *fp)
@@ -293,12 +272,10 @@ int main(int argc, char** argv)
       FD_ZERO(&rfds);
       FD_ZERO(&wfds);
 
-      {
-        std::list<int> screen_sockets;
-        server.getScreenSocket(screen_sockets);
-        for (auto x: screen_sockets) {
-          FD_SET(x, &rfds);
-        }
+      std::list<VNCScreenSpawn*> screen_sockets;
+      server.getScreenSocket(screen_sockets);
+      for (auto x: screen_sockets) {
+        FD_SET(x->getScreenSocket(), &rfds);
       }
       for (std::list<SocketListener*>::iterator i = listeners.begin();
            i != listeners.end();
@@ -329,6 +306,11 @@ int main(int argc, char** argv)
       // Do the wait...
       int n = select(FD_SETSIZE, &rfds, &wfds, 0,
                      wait_ms ? &tv : NULL);
+
+      for (auto x: screen_sockets) {
+        if (FD_ISSET(x->getScreenSocket(), &rfds))
+          x->processXEvents();
+      }
 
       if (n < 0) {
         if (errno == EINTR) {

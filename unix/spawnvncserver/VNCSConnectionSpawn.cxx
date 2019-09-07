@@ -47,7 +47,7 @@ static Cursor emptyCursor(0, 0, Point(0, 0), NULL);
 
 VNCSConnectionSpawn::VNCSConnectionSpawn(VNCServerSpawn* server_, network::Socket *s,
                                    bool reverse)
-  : VNCSConnectionST(nullptr, s, reverse)
+  : VNCSConnectionST(server_, s, reverse)
 {
   setStreams(&sock->inStream(), &sock->outStream());
   peerEndpoint.buf = sock->getPeerEndpoint();
@@ -93,6 +93,7 @@ VNCSConnectionSpawn::~VNCSConnectionSpawn()
 void VNCSConnectionSpawn::updateServer(VNCServerST * new_server)
 {
   server = new_server;
+  //dynamic_cast<VNCScreenSpawn*>(server)->startDesktopPublic();
 }
 
 void VNCSConnectionSpawn::queryConnection(const char* userName)

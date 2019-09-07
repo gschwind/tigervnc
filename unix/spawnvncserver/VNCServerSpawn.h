@@ -63,25 +63,6 @@ namespace rfb {
     //   structure for the socket & initialise it.
     virtual void addSocket(network::Socket* sock, bool outgoing=false) override;
 
-    // removeSocket
-    //   Clean up any resources associated with the Socket
-    virtual void removeSocket(network::Socket* sock) override;
-
-    // getSockets() gets a list of sockets.  This can be used to generate an
-    // fd_set for calling select().
-    virtual void getSockets(std::list<network::Socket*>* sockets) override;
-
-    // processSocketReadEvent
-    //   Read more RFB data from the Socket.  If an error occurs during
-    //   processing then shutdown() is called on the Socket, causing
-    //   removeSocket() to be called by the caller at a later time.
-    virtual void processSocketReadEvent(network::Socket* sock) override;
-
-    // processSocketWriteEvent
-    //   Flush pending data from the Socket on to the network.
-    virtual void processSocketWriteEvent(network::Socket* sock) override;
-
-
     // VNCServerSpawnX-only methods
 
     VNCScreenSpawn * get_user_session(std::string const & username);
@@ -89,49 +70,12 @@ namespace rfb {
     void queryConnection(VNCSConnectionSpawn* client,
                                       const char* userName);
 
-    // closeClients() closes all RFB sessions, except the specified one (if
-    // any), and logs the specified reason for closure.
-    void closeClients(const char* reason, network::Socket* sock);
-
-    // Part of the framebuffer that has been modified but is not yet
-    // ready to be sent to clients
-    Region getPendingRegion();
-
-    // getRenderedCursor() returns an up to date version of the server
-    // side rendered cursor buffer
-    const RenderedCursor* getRenderedCursor();
-
     void processXEvents();
 
-    void getScreenSocket(std::list<int> & sockets);
-
-  protected:
-
-//    virtual std::shared_ptr<VNCScreenSpawn> createVNCScreen(std::string const & userName) = 0;
-
-    // Timer callbacks
-    virtual bool handleTimeout(Timer* t);
-
-    // - Internal methods
-
-    // - Check how many of the clients are authenticated.
-    int authClientCount();
-
+    void getScreenSocket(std::list<VNCScreenSpawn*> & sockets);
 
   protected:
     std::map<std::string, std::shared_ptr<VNCScreenSpawn>> user_sessions;
-
-    Blacklist blacklist;
-    Blacklist* blHosts;
-
-    CharArray name;
-
-    std::list<VNCSConnectionSpawn*> clients;
-    std::list<network::Socket*> closingSockets;
-
-    Timer idleTimer;
-    Timer disconnectTimer;
-    Timer connectTimer;
 
   };
 

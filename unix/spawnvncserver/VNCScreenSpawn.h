@@ -25,6 +25,7 @@
 #define __RFB_VNCSCREENSPAWN_H__
 
 #include <rfb/VNCServerST.h>
+#include <spawnvncserver/VNCSConnectionSpawn.h>
 
 namespace rfb {
 
@@ -39,6 +40,12 @@ namespace rfb {
     void processXEvents();
 
     int getScreenSocket();
+
+    void startDesktopPublic() { startDesktop(); }
+
+    void addClient(VNCSConnectionSpawn * c) {
+      clients.push_front(c);
+    }
 
   };
 

@@ -78,8 +78,7 @@ static LogWriter connectionsLog("Connections");
 // -=- Constructors/Destructor
 
 VNCServerSpawn::VNCServerSpawn(const char* name_)
-  : VNCServerST(name_, nullptr), blHosts(&blacklist), name(strDup(name_)),
-    idleTimer(this), disconnectTimer(this), connectTimer(this)
+  : VNCServerST(name_, nullptr)
 {
   slog.debug("creating single-threaded server %s", name.buf);
 
@@ -97,14 +96,6 @@ VNCServerSpawn::~VNCServerSpawn()
   // Close any active clients, with appropriate logging & cleanup
   for (auto &x: user_sessions) {
     x.second.reset();
-  }
-
-  // Delete all the clients, and their sockets, and any closing sockets
-  while (!clients.empty()) {
-    VNCSConnectionSpawn* client;
-    client = clients.front();
-    clients.pop_front();
-    delete client;
   }
 
 }
@@ -149,79 +140,13 @@ void VNCServerSpawn::addSocket(network::Socket* sock, bool outgoing)
   client->init();
 }
 
-void VNCServerSpawn::removeSocket(network::Socket* sock) {
-  // - If the socket has resources allocated to it, delete them
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-
-      // remove the client from the internal server.
-//      (*ci)->unregister();
-
-      // Adjust the exit timers
-      connectTimer.stop();
-      if (rfb::Server::maxDisconnectionTime && clients.empty())
-        disconnectTimer.start(secsToMillis(rfb::Server::maxDisconnectionTime));
-
-      // - Delete the per-Socket resources
-      delete *ci;
-      clients.remove(*ci);
-
-      CharArray name;
-      name.buf = sock->getPeerEndpoint();
-      connectionsLog.status("closed: %s", name.buf);
-
-      return;
-    }
-  }
-
-  // - If the Socket has no resources, it may have been a closingSocket
-  closingSockets.remove(sock);
-}
-
-void VNCServerSpawn::processSocketReadEvent(network::Socket* sock)
-{
-  // - Find the appropriate VNCSConnectionSpawnX and process the event
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-      (*ci)->processMessages();
-      return;
-    }
-  }
-
-  for(auto &x: user_sessions) {
-    x.second->processSocketReadEvent(sock);
-  }
-
-  throw rdr::Exception("invalid Socket in VNCServerSpawnX");
-}
-
-void VNCServerSpawn::processSocketWriteEvent(network::Socket* sock)
-{
-  // - Find the appropriate VNCSConnectionSpawnX and process the event
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->getSock() == sock) {
-      (*ci)->flushSocket();
-      return;
-    }
-  }
-
-  for(auto &x: user_sessions) {
-    x.second->processSocketWriteEvent(sock);
-  }
-
-  throw rdr::Exception("invalid Socket in VNCServerSpawnX");
-}
-
 VNCScreenSpawn * VNCServerSpawn::get_user_session(std::string const & userName)
 {
   auto x = user_sessions.find(userName);
   if (x != user_sessions.end()) {
     return x->second.get();
   } else {
-    auto desktop = new XDesktop(user_sessions.size()+1, userName);
+    auto desktop = new XDesktop(user_sessions.size()+10, userName);
     auto session = std::make_shared<VNCScreenSpawn>("DummyServerName", desktop);
     user_sessions[userName] = session;
     return session.get();
@@ -236,9 +161,11 @@ void VNCServerSpawn::queryConnection(VNCSConnectionSpawn* client,
   name.buf = client->getSock()->getPeerAddress();
   blHosts->clearBlackmark(name.buf);
 
-  // - Prepare the desktop for that the client will start requiring
-  // resources after this
-  startDesktop();
+  // FIXME: start a session event if the client doesn't get approved.
+  auto server = get_user_session(userName);
+  client->updateServer(server);
+  server->addClient(client);
+  server->startDesktopPublic();
 
   // - Special case to provide a more useful error message
   if (rfb::Server::neverShared &&
@@ -263,44 +190,8 @@ void VNCServerSpawn::queryConnection(VNCSConnectionSpawn* client,
     return;
   }
 
-  client->updateServer(get_user_session(userName));
-
 }
 
-
-
-
-// Other public methods
-
-void VNCServerSpawn::closeClients(const char* reason, network::Socket* except)
-{
-  std::list<VNCSConnectionSpawn*>::iterator i, next_i;
-  for (i=clients.begin(); i!=clients.end(); i=next_i) {
-    next_i = i; next_i++;
-    if ((*i)->getSock() != except)
-      (*i)->close(reason);
-  }
-}
-
-void VNCServerSpawn::getSockets(std::list<network::Socket*>* sockets)
-{
-  sockets->clear();
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    sockets->push_back((*ci)->getSock());
-  }
-  std::list<network::Socket*>::iterator si;
-  for (si = closingSockets.begin(); si != closingSockets.end(); si++) {
-    sockets->push_back(*si);
-  }
-}
-
-// -=- Internal methods
-bool VNCServerSpawn::handleTimeout(Timer* t)
-{
-  //TODO
-  return false;
-}
 
 void VNCServerSpawn::processXEvents()
 {
@@ -309,19 +200,10 @@ void VNCServerSpawn::processXEvents()
   }
 }
 
-void VNCServerSpawn::getScreenSocket(std::list<int> & sockets)
+void VNCServerSpawn::getScreenSocket(std::list<VNCScreenSpawn*> & sockets)
 {
   for(auto &x: user_sessions) {
-    sockets.push_back(x.second->getScreenSocket());
+    sockets.push_back(x.second.get());
   }
 }
 
-int VNCServerSpawn::authClientCount() {
-  int count = 0;
-  std::list<VNCSConnectionSpawn*>::iterator ci;
-  for (ci = clients.begin(); ci != clients.end(); ci++) {
-    if ((*ci)->authenticated())
-      count++;
-  }
-  return count;
-}

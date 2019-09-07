@@ -61,7 +61,7 @@ public:
   void update_default_visual();
 
   // -=- SDesktop interface
-  virtual void start(rfb::VNCServer* vs);
+  virtual void start(rfb::VNCServer* vs) override;
   virtual void stop();
   virtual void terminate();
   bool isRunning();

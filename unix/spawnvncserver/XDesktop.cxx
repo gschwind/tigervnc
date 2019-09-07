@@ -148,11 +148,8 @@ XDesktop::XDesktop(int n, std::string const & userName)
     xcb = nullptr;
   }
 
-
   if (!xcb) {
-    // FIXME: Why not vlog.error(...)?
-    fprintf(stderr,"%s: unable to open display \"%s\"\r\n",
-            "TODO", display_str);
+    vlog.error("unable to open display \"%s\"", display_str);
     throw Exception();
   }
 
